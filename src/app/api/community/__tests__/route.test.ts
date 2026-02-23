@@ -47,17 +47,43 @@ beforeEach(() => {
 const userSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", isAdmin: false };
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
+type CommunityItem = {
+  title: string;
+  mediaType: string;
+  tally: { keepCount: number };
+  currentUserVote: string | null;
+  voters?: unknown; // Should be undefined
+  nominationType: string;
+  seasonCount: number | null;
+  keepSeasons: number | null;
+  isRequestor: boolean;
+  isNominator: boolean;
+  requestedAt: string;
+  status: string;
+  [key: string]: unknown;
+};
+
+type CommunityResponse = {
+  items: CommunityItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+};
+
 describe("GET /api/community", () => {
   it("returns items where requestor voted 'delete' or 'trim', including own", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(res.status).toBe(200);
     // Items 2 (delete by user-1), 5 (delete by user-2, own), 7 (trim by user-1)
     expect(data.items.length).toBe(3);
-    const titles = data.items.map((i: any) => i.title);
+    const titles = data.items.map((i) => i.title);
     expect(titles).toContain("Test Movie 2");
     expect(titles).toContain("Big Brother");
     expect(titles).toContain("Other Movie");
@@ -67,29 +93,29 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // Item 2 has community votes: plex-user-2 'keep', plex-admin 'keep'
-    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.tally.keepCount).toBe(2);
+    const item2 = data.items.find((i) => i.title === "Test Movie 2");
+    expect(item2!.tally.keepCount).toBe(2);
   });
 
   it("returns current user's community vote", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // plex-user-2 voted 'keep' on item 2
-    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.currentUserVote).toBe("keep");
+    const item2 = data.items.find((i) => i.title === "Test Movie 2");
+    expect(item2!.currentUserVote).toBe("keep");
   });
 
   it("does not return voter identities", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     for (const item of data.items) {
       expect(item.voters).toBeUndefined();
@@ -100,7 +126,7 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?type=movie");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // user-2 sees item 2 (movie, by user-1) + item 5 (movie, own)
     expect(data.items.length).toBe(2);
@@ -113,7 +139,7 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?type=tv");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(data.items.length).toBe(1);
     expect(data.items[0].title).toBe("Big Brother");
@@ -124,10 +150,10 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/community?unvoted=true");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // admin voted 'keep' on item 2, but not on item 5 or 7
-    const titles = data.items.map((i: any) => i.title);
+    const titles = data.items.map((i) => i.title);
     expect(titles).toContain("Other Movie");
     expect(titles).toContain("Big Brother");
     expect(titles).not.toContain("Test Movie 2");
@@ -137,7 +163,7 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?sort=least_keep");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // 3 candidates total (2 delete + 1 trim), including own
     expect(data.items.length).toBe(3);
@@ -147,7 +173,7 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?page=1&limit=1");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(data.items.length).toBe(1);
     expect(data.pagination.total).toBe(3);
@@ -158,7 +184,7 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(data.pagination).toBeDefined();
     expect(data.pagination.page).toBe(1);
@@ -169,10 +195,10 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?sort=title_asc");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const titles = data.items.map((i: any) => i.title);
-    const sorted = [...titles].sort((a: string, b: string) => a.localeCompare(b));
+    const titles = data.items.map((i) => i.title);
+    const sorted = [...titles].sort((a, b) => a.localeCompare(b));
     expect(titles).toEqual(sorted);
   });
 
@@ -180,9 +206,9 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community?sort=requested_newest");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const dates = data.items.map((i: any) => i.requestedAt);
+    const dates = data.items.map((i) => i.requestedAt);
     for (let i = 0; i < dates.length - 1; i++) {
       expect(dates[i] >= dates[i + 1]).toBe(true);
     }
@@ -200,35 +226,35 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const trimItem = data.items.find((i: any) => i.title === "Big Brother");
+    const trimItem = data.items.find((i) => i.title === "Big Brother");
     expect(trimItem).toBeDefined();
-    expect(trimItem.nominationType).toBe("trim");
-    expect(trimItem.seasonCount).toBe(8);
-    expect(trimItem.keepSeasons).toBe(1);
+    expect(trimItem!.nominationType).toBe("trim");
+    expect(trimItem!.seasonCount).toBe(8);
+    expect(trimItem!.keepSeasons).toBe(1);
   });
 
   it("marks items with isRequestor and isNominator flags", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     // Item 5 is user-2's own request and own nomination
-    const ownItem = data.items.find((i: any) => i.title === "Other Movie");
-    expect(ownItem.isRequestor).toBe(true);
-    expect(ownItem.isNominator).toBe(true);
+    const ownItem = data.items.find((i) => i.title === "Other Movie");
+    expect(ownItem!.isRequestor).toBe(true);
+    expect(ownItem!.isNominator).toBe(true);
 
     // Item 2 is user-1's nomination — not user-2's request or nomination
-    const otherItem = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(otherItem.isRequestor).toBe(false);
-    expect(otherItem.isNominator).toBe(false);
+    const otherItem = data.items.find((i) => i.title === "Test Movie 2");
+    expect(otherItem!.isRequestor).toBe(false);
+    expect(otherItem!.isNominator).toBe(false);
   });
 
   it("shows admin-nominated items in community list", async () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
     );
@@ -236,16 +262,16 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const titles = data.items.map((i: any) => i.title);
+    const titles = data.items.map((i) => i.title);
     expect(titles).toContain("Another Movie");
   });
 
   it("does not duplicate items when both self and admin nominate", async () => {
     // Item 2 already has plex-user-1 vote=delete (self-nomination)
     // Admin also votes delete
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
     );
@@ -253,15 +279,15 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const item2Entries = data.items.filter((i: any) => i.title === "Test Movie 2");
+    const item2Entries = data.items.filter((i) => i.title === "Test Movie 2");
     expect(item2Entries.length).toBe(1);
   });
 
   it("requestor sees isRequestor=true when admin nominated their item", async () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
     );
@@ -275,17 +301,17 @@ describe("GET /api/community", () => {
     });
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const adminNominated = data.items.find((i: any) => i.title === "Another Movie");
+    const adminNominated = data.items.find((i) => i.title === "Another Movie");
     expect(adminNominated).toBeDefined();
-    expect(adminNominated.isRequestor).toBe(true);
-    expect(adminNominated.isNominator).toBe(false);
+    expect(adminNominated!.isRequestor).toBe(true);
+    expect(adminNominated!.isNominator).toBe(false);
   });
 
   it("admin sees isNominator=true for items they nominated", async () => {
     // Admin nominates item 6 for deletion
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
     );
@@ -293,38 +319,38 @@ describe("GET /api/community", () => {
     mockRequireAuth.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const adminNominated = data.items.find((i: any) => i.title === "Another Movie");
+    const adminNominated = data.items.find((i) => i.title === "Another Movie");
     expect(adminNominated).toBeDefined();
-    expect(adminNominated.isRequestor).toBe(false);
-    expect(adminNominated.isNominator).toBe(true);
+    expect(adminNominated!.isRequestor).toBe(false);
+    expect(adminNominated!.isNominator).toBe(true);
   });
 
   it("returns correct nominationType for delete candidates", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const deleteItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    const deleteItem = data.items.find((i) => i.title === "Test Movie 2");
     expect(deleteItem).toBeDefined();
-    expect(deleteItem.nominationType).toBe("delete");
-    expect(deleteItem.keepSeasons).toBeNull();
+    expect(deleteItem!.nominationType).toBe("delete");
+    expect(deleteItem!.keepSeasons).toBeNull();
   });
 
   it("includes removed items in community listing with status badge", async () => {
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 2`);
 
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const removedItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    const removedItem = data.items.find((i) => i.title === "Test Movie 2");
     expect(removedItem).toBeDefined();
-    expect(removedItem.status).toBe("removed");
+    expect(removedItem!.status).toBe("removed");
     // All candidates should still be present
     expect(data.items.length).toBe(3);
     expect(data.pagination.total).toBe(3);

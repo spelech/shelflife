@@ -7,6 +7,7 @@ export const STATUS_COLORS: Record<string, string> = {
   pending: "bg-orange-900/50 text-orange-300",
   unknown: "bg-gray-800 text-gray-400",
   removed: "bg-red-900/50 text-red-300 line-through",
+  not_requested: "bg-purple-900/40 text-purple-300",
 };
 
 export const VOTE_COLORS: Record<string, string> = {

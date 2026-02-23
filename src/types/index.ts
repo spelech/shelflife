@@ -50,7 +50,8 @@ export type MediaStatus =
   | "processing"
   | "partial"
   | "available"
-  | "removed";
+  | "removed"
+  | "not_requested";
 export type SyncType = "overseerr" | "tautulli" | "full";
 export type SyncStatus = "running" | "completed" | "failed";
 

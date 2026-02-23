@@ -9,7 +9,7 @@ import {
 import { adminUserRequestsQuerySchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, inArray, isNull, type SQL } from "drizzle-orm";
+import { eq, and, inArray, isNull, or, type SQL } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +24,20 @@ export async function GET(
     const offset = (query.page - 1) * query.limit;
 
     // Build conditions - all filtering happens in SQL
-    const conditions: SQL[] = [eq(mediaItems.requestedByPlexId, plexId)];
+    const conditions: SQL[] = [];
+
+    if (query.source === "all_requests") {
+      conditions.push(eq(mediaItems.inOverseerr, true));
+    } else if (query.source === "my_requests") {
+      conditions.push(
+        and(eq(mediaItems.inOverseerr, true), eq(mediaItems.requestedByPlexId, plexId))!
+      );
+    } else if (query.source === "my_media") {
+      conditions.push(or(eq(watchStatus.watched, true), eq(mediaItems.requestedByPlexId, plexId))!);
+    } else if (query.source === "unrequested") {
+      conditions.push(and(eq(mediaItems.inPlex, true), eq(mediaItems.inOverseerr, false))!);
+    }
+    // all_media applies no filter
 
     if (query.vote !== "all") {
       if (query.vote === "none") {

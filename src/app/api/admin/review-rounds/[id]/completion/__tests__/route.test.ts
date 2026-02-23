@@ -35,7 +35,7 @@ vi.mock("@/lib/db", () => ({
     return testDb.db;
   },
   get sqlite() {
-    return (testDb.db as any).session.client;
+    return testDb.sqlite;
   },
 }));
 
@@ -44,7 +44,7 @@ const { GET } = await import("../route");
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
 function createActiveRound(): number {
-  const sqlite = (testDb.db as any).session.client;
+  const sqlite = testDb.sqlite;
   const result = sqlite
     .prepare(
       `INSERT INTO review_rounds (name, status, created_by_plex_id) VALUES ('Test Round', 'active', 'plex-admin') RETURNING id`
@@ -97,7 +97,7 @@ describe("GET /api/admin/review-rounds/:id/completion", () => {
   it("returns correct counts after users toggle", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const roundId = createActiveRound();
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // User 1 completes nominations
     sqlite.exec(

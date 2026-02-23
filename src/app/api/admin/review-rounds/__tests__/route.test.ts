@@ -35,7 +35,7 @@ vi.mock("@/lib/db", () => ({
     return testDb.db;
   },
   get sqlite() {
-    return (testDb.db as any).session.client;
+    return testDb.sqlite;
   },
 }));
 
@@ -55,6 +55,16 @@ beforeEach(() => {
 });
 
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
+
+type Candidate = {
+  title: string;
+  [key: string]: unknown;
+};
+
+type RoundDetailResponse = {
+  round: { id: number; name: string; status: string; endDate: string | null };
+  candidates: Candidate[];
+};
 
 describe("POST /api/admin/review-rounds", () => {
   it("creates a review round", async () => {
@@ -268,7 +278,7 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
     );
@@ -286,9 +296,9 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
     const res = await roundDetailModule.GET(req, {
       params: Promise.resolve({ id: String(round.id) }),
     });
-    const data = await res.json();
+    const data = (await res.json()) as RoundDetailResponse;
 
-    const titles = data.candidates.map((c: any) => c.title);
+    const titles = data.candidates.map((c) => c.title);
     expect(titles).toContain("Another Movie");
   });
 
@@ -296,7 +306,7 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
     // Admin also votes delete on item 2 (already self-nominated by plex-user-1)
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
     );
@@ -314,9 +324,9 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
     const res = await roundDetailModule.GET(req, {
       params: Promise.resolve({ id: String(round.id) }),
     });
-    const data = await res.json();
+    const data = (await res.json()) as RoundDetailResponse;
 
-    const item2Entries = data.candidates.filter((c: any) => c.title === "Test Movie 2");
+    const item2Entries = data.candidates.filter((c) => c.title === "Test Movie 2");
     expect(item2Entries.length).toBe(1);
   });
 });
@@ -462,7 +472,7 @@ describe("GET /api/admin/review-rounds/:id/export", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
     // Clear all votes so there are no candidates
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec("DELETE FROM user_votes");
 
     // Create round

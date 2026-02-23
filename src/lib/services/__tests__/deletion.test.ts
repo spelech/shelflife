@@ -32,13 +32,15 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+type MockRadarrMovie = { id: number; title: string; [key: string]: unknown };
+type MockSonarrSeries = { id: number; title: string; [key: string]: unknown };
+
 beforeEach(() => {
   testDb = createTestDb();
   vi.restoreAllMocks();
 
   // Seed test data: a user and media items
-  const sqlite = (testDb.db as any).session.client;
-  sqlite.exec(`
+  testDb.sqlite.exec(`
     INSERT INTO users (plex_id, username, is_admin) VALUES ('admin-1', 'admin', 1);
     INSERT INTO media_items (id, overseerr_id, tmdb_id, tvdb_id, media_type, title, status, requested_by_plex_id)
     VALUES
@@ -55,17 +57,20 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    vi.mocked(isRadarrConfigured).mockReturnValue(true);
+    vi.mocked(isSonarrConfigured).mockReturnValue(false);
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockResolvedValue({ id: 42 });
-    (mockRadarrClient.deleteMovie as any).mockResolvedValue(undefined);
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = vi.mocked(getRadarrClient)();
+    vi.mocked(mockRadarrClient.lookupByTmdbId).mockResolvedValue({
+      id: 42,
+      title: "Mock",
+    } as MockRadarrMovie);
+    vi.mocked(mockRadarrClient.deleteMovie).mockResolvedValue(undefined);
+    vi.mocked(getRadarrClient).mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -80,12 +85,15 @@ describe("executeMediaDeletion", () => {
     expect(result.sonarr.attempted).toBe(false);
 
     // Verify media_items status updated to removed
-    const sqlite = (testDb.db as any).session.client;
-    const row = sqlite.prepare("SELECT status FROM media_items WHERE id = 1").get();
+    const row = testDb.sqlite.prepare("SELECT status FROM media_items WHERE id = 1").get() as {
+      status: string;
+    };
     expect(row.status).toBe("removed");
 
     // Verify deletion_log entry exists
-    const logRow = sqlite.prepare("SELECT * FROM deletion_log WHERE media_item_id = 1").get();
+    const logRow = testDb.sqlite
+      .prepare("SELECT * FROM deletion_log WHERE media_item_id = 1")
+      .get() as { radarr_success: number; overseerr_success: number };
     expect(logRow).toBeTruthy();
     expect(logRow.radarr_success).toBe(1);
     expect(logRow.overseerr_success).toBe(1);
@@ -97,17 +105,17 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(false);
-    (isSonarrConfigured as any).mockReturnValue(true);
+    vi.mocked(isRadarrConfigured).mockReturnValue(false);
+    vi.mocked(isSonarrConfigured).mockReturnValue(true);
 
-    const mockSonarrClient = (getSonarrClient as any)();
-    (mockSonarrClient.lookupByTvdbId as any).mockResolvedValue({ id: 55 });
-    (mockSonarrClient.deleteSeries as any).mockResolvedValue(undefined);
-    (getSonarrClient as any).mockReturnValue(mockSonarrClient);
+    const mockSonarrClient = vi.mocked(getSonarrClient)();
+    vi.mocked(mockSonarrClient.lookupByTvdbId).mockResolvedValue({ id: 55 } as MockSonarrSeries);
+    vi.mocked(mockSonarrClient.deleteSeries).mockResolvedValue(undefined);
+    vi.mocked(getSonarrClient).mockReturnValue(mockSonarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 2,
@@ -122,8 +130,9 @@ describe("executeMediaDeletion", () => {
     expect(result.radarr.attempted).toBe(false);
 
     // Verify media_items status updated to removed
-    const sqlite = (testDb.db as any).session.client;
-    const row = sqlite.prepare("SELECT status FROM media_items WHERE id = 2").get();
+    const row = testDb.sqlite.prepare("SELECT status FROM media_items WHERE id = 2").get() as {
+      status: string;
+    };
     expect(row.status).toBe("removed");
   });
 
@@ -133,18 +142,18 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    vi.mocked(isRadarrConfigured).mockReturnValue(true);
+    vi.mocked(isSonarrConfigured).mockReturnValue(false);
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockRejectedValue(
+    const mockRadarrClient = vi.mocked(getRadarrClient)();
+    vi.mocked(mockRadarrClient.lookupByTmdbId).mockRejectedValue(
       new Error("Radarr connection refused")
     );
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    vi.mocked(getRadarrClient).mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -158,8 +167,9 @@ describe("executeMediaDeletion", () => {
     expect(result.overseerr.success).toBe(true);
 
     // Status should still be updated to removed
-    const sqlite = (testDb.db as any).session.client;
-    const row = sqlite.prepare("SELECT status FROM media_items WHERE id = 1").get();
+    const row = testDb.sqlite.prepare("SELECT status FROM media_items WHERE id = 1").get() as {
+      status: string;
+    };
     expect(row.status).toBe("removed");
   });
 
@@ -169,17 +179,17 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    vi.mocked(isRadarrConfigured).mockReturnValue(true);
+    vi.mocked(isSonarrConfigured).mockReturnValue(false);
 
-    const mockRadarrClient = (getRadarrClient as any)();
+    const mockRadarrClient = vi.mocked(getRadarrClient)();
     // lookupByTmdbId returns null -- movie not in Radarr anymore
-    (mockRadarrClient.lookupByTmdbId as any).mockResolvedValue(null);
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    vi.mocked(mockRadarrClient.lookupByTmdbId).mockResolvedValue(null);
+    vi.mocked(getRadarrClient).mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -198,12 +208,12 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(false);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    vi.mocked(isRadarrConfigured).mockReturnValue(false);
+    vi.mocked(isSonarrConfigured).mockReturnValue(false);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 2,
@@ -219,8 +229,7 @@ describe("executeMediaDeletion", () => {
     const { executeMediaDeletion } = await import("../deletion");
 
     // Mark item as already removed
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+    testDb.sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
 
     await expect(
       executeMediaDeletion({
@@ -249,16 +258,16 @@ describe("executeMediaDeletion", () => {
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    vi.mocked(isRadarrConfigured).mockReturnValue(true);
+    vi.mocked(isSonarrConfigured).mockReturnValue(false);
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockRejectedValue(new Error("Radarr timeout"));
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = vi.mocked(getRadarrClient)();
+    vi.mocked(mockRadarrClient.lookupByTmdbId).mockRejectedValue(new Error("Radarr timeout"));
+    vi.mocked(getRadarrClient).mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = vi.mocked(getRequestServiceClient)();
+    vi.mocked(mockOverseerrClient.deleteMedia).mockResolvedValue(undefined);
+    vi.mocked(getRequestServiceClient).mockReturnValue(mockOverseerrClient);
 
     await executeMediaDeletion({
       mediaItemId: 1,
@@ -266,8 +275,9 @@ describe("executeMediaDeletion", () => {
       deletedByPlexId: "admin-1",
     });
 
-    const sqlite = (testDb.db as any).session.client;
-    const logRow = sqlite.prepare("SELECT * FROM deletion_log WHERE media_item_id = 1").get();
+    const logRow = testDb.sqlite
+      .prepare("SELECT * FROM deletion_log WHERE media_item_id = 1")
+      .get() as { radarr_success: number; errors: string };
     expect(logRow).toBeTruthy();
     expect(logRow.radarr_success).toBe(0);
 

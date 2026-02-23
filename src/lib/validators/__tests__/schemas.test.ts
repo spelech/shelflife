@@ -92,7 +92,7 @@ describe("mediaQuerySchema", () => {
   it("applies all defaults for empty input", () => {
     const result = mediaQuerySchema.parse({});
     expect(result).toEqual({
-      scope: "personal",
+      source: "my_requests",
       type: "all",
       status: "all",
       vote: "all",
@@ -102,16 +102,16 @@ describe("mediaQuerySchema", () => {
     });
   });
 
-  it("accepts scope='all'", () => {
-    expect(mediaQuerySchema.parse({ scope: "all" }).scope).toBe("all");
+  it("accepts source='all_requests'", () => {
+    expect(mediaQuerySchema.parse({ source: "all_requests" }).source).toBe("all_requests");
   });
 
-  it("accepts scope='personal'", () => {
-    expect(mediaQuerySchema.parse({ scope: "personal" }).scope).toBe("personal");
+  it("accepts source='my_requests'", () => {
+    expect(mediaQuerySchema.parse({ source: "my_requests" }).source).toBe("my_requests");
   });
 
-  it("rejects invalid scope value", () => {
-    expect(() => mediaQuerySchema.parse({ scope: "invalid" })).toThrow();
+  it("rejects invalid source value", () => {
+    expect(() => mediaQuerySchema.parse({ source: "invalid" })).toThrow();
   });
 
   it("coerces string page to number", () => {
@@ -280,6 +280,7 @@ describe("adminUserRequestsQuerySchema", () => {
       page: 1,
       limit: 20,
       vote: "all",
+      source: "my_media",
     });
   });
 

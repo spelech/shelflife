@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mapMediaStatus } from "../overseerr";
+import type { getOverseerrClient as GetClientType } from "../overseerr";
 
 // We need to test both mapMediaStatus and OverseerrClient.
 // OverseerrClient uses a module-level singleton, so we need to reset it between tests.
@@ -51,7 +52,7 @@ describe("mapMediaStatus", () => {
 
 describe("OverseerrClient", () => {
   // Reset the module-level singleton between tests
-  let getOverseerrClient: () => any;
+  let getOverseerrClient: typeof GetClientType;
 
   beforeEach(async () => {
     vi.resetModules();

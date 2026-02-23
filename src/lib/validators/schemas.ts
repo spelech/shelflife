@@ -13,7 +13,9 @@ export const voteSchema = z
   });
 
 export const statsQuerySchema = z.object({
-  scope: z.enum(["personal", "all"]).default("personal"),
+  source: z
+    .enum(["my_requests", "all_requests", "my_media", "unrequested", "all_media"])
+    .default("my_requests"),
 });
 
 export const syncRequestSchema = z.object({
@@ -21,10 +23,21 @@ export const syncRequestSchema = z.object({
 });
 
 export const mediaQuerySchema = z.object({
-  scope: z.enum(["personal", "all"]).default("personal"),
+  source: z
+    .enum(["all_requests", "my_requests", "my_media", "unrequested", "all_media"])
+    .default("my_requests"),
   type: z.enum(["movie", "tv", "all"]).default("all"),
   status: z
-    .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
+    .enum([
+      "available",
+      "pending",
+      "processing",
+      "partial",
+      "unknown",
+      "removed",
+      "not_requested",
+      "all",
+    ])
     .default("all"),
   vote: z.enum(["nominated", "none", "all"]).default("all"),
   search: z.string().max(200).optional(),
@@ -49,6 +62,9 @@ export const communityQuerySchema = z.object({
 export const adminUserRequestsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
+  source: z
+    .enum(["all_requests", "my_requests", "my_media", "unrequested", "all_media"])
+    .default("my_media"),
   vote: z.enum(["nominated", "none", "delete", "trim", "all"]).default("all"),
   watched: z.enum(["true", "false", ""]).optional(),
 });

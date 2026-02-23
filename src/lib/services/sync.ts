@@ -6,7 +6,7 @@ import { getTautulliClient } from "./tautulli";
 import { getSonarrClient, isSonarrConfigured } from "./sonarr";
 import { getRadarrClient, isRadarrConfigured } from "./radarr";
 import { upsertUser } from "./user-upsert";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull, isNull } from "drizzle-orm";
 import { syncLogger } from "./sync-logger";
 import { isPlexSyncEnabled } from "./settings";
 
@@ -143,6 +143,9 @@ export async function syncLayer1Plex(
             fileSize: size,
             lastSyncedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            // Only set not_requested if it's still the default unknown —
+            // don't overwrite a real status set by the Overseerr layer.
+            ...(existing[0].status === "unknown" ? { status: "not_requested" } : {}),
           })
           .where(eq(mediaItems.id, existing[0].id));
       } else {
@@ -150,6 +153,7 @@ export async function syncLayer1Plex(
           ratingKey: rk,
           title: item.title || "Unknown",
           mediaType,
+          status: "not_requested",
           inPlex: true,
           fileSize: size,
           lastSyncedAt: new Date().toISOString(),
@@ -385,6 +389,40 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
     } else if (item.mediaType === "movie" && item.tmdbId && !seenTmdb.has(item.tmdbId)) {
       await db.update(mediaItems).set({ inSonarrRadarr: false }).where(eq(mediaItems.id, item.id));
     }
+  }
+
+  // Poster enrichment: fetch posterPath for items that have a tmdbId but no poster yet.
+  // This covers Plex-only items that got their tmdbId from Radarr/Sonarr but were never
+  // synced through Overseerr (which is where posterPath is normally populated).
+  syncLogger.info("Layer 2 - Posters", "Enriching missing posters for items with tmdbId...");
+  try {
+    const { getRequestServiceClient } = await import("./request-service");
+    const requestClient = getRequestServiceClient();
+    const missingPosters = await db
+      .select()
+      .from(mediaItems)
+      .where(and(isNotNull(mediaItems.tmdbId), isNull(mediaItems.posterPath)));
+
+    for (const item of missingPosters) {
+      if (!item.tmdbId) continue;
+      try {
+        const details = await requestClient.getMediaDetails(item.tmdbId, item.mediaType);
+        if (details.posterPath) {
+          await db
+            .update(mediaItems)
+            .set({ posterPath: details.posterPath })
+            .where(eq(mediaItems.id, item.id));
+        }
+      } catch {
+        // Non-fatal: skip if TMDB lookup fails for this item
+      }
+    }
+    syncLogger.info(
+      "Layer 2 - Posters",
+      `Enriched posters for up to ${missingPosters.length} items.`
+    );
+  } catch (e) {
+    syncLogger.warn("Layer 2 - Posters", `Poster enrichment skipped: ${e}`);
   }
 
   return synced;

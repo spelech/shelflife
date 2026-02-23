@@ -10,6 +10,15 @@ import { useProviderLabel } from "@/lib/provider-context";
 import { getClientProviderUrl } from "@/lib/request-provider";
 import type { MediaStatus } from "@/types";
 
+const STATUS_LABELS: Partial<Record<MediaStatus, string>> = {
+  available: "Available",
+  partial: "Partial",
+  processing: "Processing",
+  pending: "Pending",
+  removed: "Removed",
+  not_requested: "Not Requested",
+};
+
 interface MediaDetailModalProps {
   title: string;
   mediaType: "movie" | "tv";
@@ -149,11 +158,11 @@ export function MediaDetailModal({
         <div className="flex flex-1 flex-col p-5">
           <div className="mb-1 flex items-center gap-2">
             <MediaTypeBadge mediaType={mediaType} />
-            {status && (
+            {status && STATUS_LABELS[status] && (
               <span
                 className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
               >
-                {status}
+                {STATUS_LABELS[status]}
               </span>
             )}
           </div>
