@@ -51,8 +51,33 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<string>("");
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const router = useRouter();
+
+  const fetchLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await fetch("/api/admin/sync/logs");
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs);
+      }
+    } catch (err) {
+      console.error("Failed to fetch logs", err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const toggleLogs = () => {
+    if (!showLogs) {
+      fetchLogs();
+    }
+    setShowLogs(!showLogs);
+  };
 
   const triggerSync = async (type: string) => {
     setSyncing(true);
@@ -249,9 +274,37 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
             >
               Tautulli Only
             </button>
+            <button
+              onClick={toggleLogs}
+              className="rounded-md bg-gray-800 px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
+            >
+              {showLogs ? "Hide Logs" : "View Logs"}
+            </button>
           </>
         )}
       </div>
+
+      {showLogs && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-400">Recent Activity Logs</h4>
+            <button
+              onClick={fetchLogs}
+              disabled={loadingLogs}
+              className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+            >
+              {loadingLogs ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+          <div className="max-h-64 overflow-y-auto rounded border border-gray-800 bg-black p-3 font-mono text-xs leading-relaxed text-gray-300">
+            {logs ? (
+              <pre className="whitespace-pre-wrap">{logs}</pre>
+            ) : (
+              <p className="text-gray-500 italic">No logs found.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
     </div>

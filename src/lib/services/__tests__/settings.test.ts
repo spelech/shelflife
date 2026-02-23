@@ -102,3 +102,24 @@ describe("updateSyncScheduleSettings", () => {
     });
   });
 });
+
+describe("isPlexSyncEnabled / setPlexSyncEnabled", () => {
+  it("returns false by default (opt-in)", async () => {
+    const { isPlexSyncEnabled } = await import("../settings");
+    const enabled = await isPlexSyncEnabled();
+    expect(enabled).toBe(false);
+  });
+
+  it("returns true after enabling", async () => {
+    const { isPlexSyncEnabled, setPlexSyncEnabled } = await import("../settings");
+    await setPlexSyncEnabled(true);
+    expect(await isPlexSyncEnabled()).toBe(true);
+  });
+
+  it("returns false after disabling", async () => {
+    const { isPlexSyncEnabled, setPlexSyncEnabled } = await import("../settings");
+    await setPlexSyncEnabled(true);
+    await setPlexSyncEnabled(false);
+    expect(await isPlexSyncEnabled()).toBe(false);
+  });
+});

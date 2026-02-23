@@ -25,6 +25,8 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
       overseerrId={item.overseerrId}
       seasonCount={item.seasonCount}
       availableSeasonCount={item.availableSeasonCount}
+      inPlex={item.inPlex}
+      ratingKey={item.ratingKey}
       keepSeasons={item.nominationType === "trim" ? item.keepSeasons : null}
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}

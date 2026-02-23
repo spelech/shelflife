@@ -59,6 +59,7 @@ export interface DeletionResult {
   sonarr: { attempted: boolean; success: boolean | null; error?: string };
   radarr: { attempted: boolean; success: boolean | null; error?: string };
   overseerr: { attempted: boolean; success: boolean | null; error?: string };
+  plex: { attempted: boolean; success: boolean | null; error?: string };
 }
 
 export interface DeletionServiceStatus {
@@ -106,6 +107,7 @@ export interface CommunityCandidate {
   title: string;
   mediaType: "movie" | "tv";
   posterPath: string | null;
+  ratingKey: string | null;
   status: MediaStatus;
   tmdbId: number | null;
   tvdbId: number | null;
@@ -116,6 +118,7 @@ export interface CommunityCandidate {
   seasonCount: number | null;
   availableSeasonCount: number | null;
   fileSize: number | null;
+  inPlex: boolean;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   watchStatus: WatchStatusSummary | null;

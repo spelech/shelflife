@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
-import { mediaItems, deletionLog } from "@/lib/db/schema";
+import { mediaItems, deletionLog, users } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import type { DeletionResult, DeletionServiceStatus } from "@/types";
 import { isSonarrConfigured, getSonarrClient } from "./sonarr";
 import { isRadarrConfigured, getRadarrClient } from "./radarr";
 import { getRequestServiceClient } from "./request-service";
+import { getTautulliClient } from "./tautulli";
 
 export function getDeletionServiceStatus(): DeletionServiceStatus {
   return {
@@ -66,6 +67,7 @@ export async function executeMediaDeletion(params: {
     sonarr: { attempted: false, success: null },
     radarr: { attempted: false, success: null },
     overseerr: { attempted: false, success: null },
+    plex: { attempted: false, success: null },
   };
 
   // Sonarr deletion for TV shows
@@ -115,11 +117,46 @@ export async function executeMediaDeletion(params: {
     }
   }
 
+  // Plex fallback deletion
+  const arrHandled = result.sonarr.success === true || result.radarr.success === true;
+  if (!arrHandled && mediaItem.inPlex && mediaItem.ratingKey) {
+    result.plex.attempted = true;
+    try {
+      const tautulli = getTautulliClient();
+      const { pmsUrl } = await tautulli.getServerInfo();
+      const admin = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
+      const plexToken = admin[0]?.plexToken;
+
+      if (!plexToken) {
+        throw new Error("No admin Plex token available for deletion");
+      }
+
+      const url = `${pmsUrl}/library/metadata/${mediaItem.ratingKey}`;
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          "X-Plex-Token": plexToken,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Plex API error: ${res.status} ${res.statusText}`);
+      }
+
+      result.plex.success = true;
+    } catch (e) {
+      result.plex.success = false;
+      result.plex.error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
   // Collect non-null error messages
   const errors: string[] = [];
   if (result.sonarr.error) errors.push(`sonarr: ${result.sonarr.error}`);
   if (result.radarr.error) errors.push(`radarr: ${result.radarr.error}`);
   if (result.overseerr.error) errors.push(`overseerr: ${result.overseerr.error}`);
+  if (result.plex.error) errors.push(`plex: ${result.plex.error}`);
 
   // Insert deletion log entry
   await db.insert(deletionLog).values({
@@ -130,6 +167,7 @@ export async function executeMediaDeletion(params: {
     sonarrSuccess: result.sonarr.success,
     radarrSuccess: result.radarr.success,
     overseerrSuccess: result.overseerr.success,
+    plexSuccess: result.plex.success,
     errors: errors.length > 0 ? JSON.stringify(errors) : null,
   });
 

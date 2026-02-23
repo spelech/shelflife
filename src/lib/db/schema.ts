@@ -17,35 +17,42 @@ export const users = sqliteTable("users", {
     .notNull(),
 });
 
-export const mediaItems = sqliteTable("media_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  overseerrId: integer("overseerr_id").unique(),
-  overseerrRequestId: integer("overseerr_request_id"),
-  tmdbId: integer("tmdb_id"),
-  tvdbId: integer("tvdb_id"),
-  imdbId: text("imdb_id"),
-  mediaType: text("media_type", { enum: ["movie", "tv"] }).notNull(),
-  title: text("title").notNull(),
-  posterPath: text("poster_path"),
-  status: text("status", {
-    enum: ["unknown", "pending", "processing", "partial", "available", "removed"],
-  })
-    .default("unknown")
-    .notNull(),
-  requestedByPlexId: text("requested_by_plex_id").references(() => users.plexId),
-  requestedAt: text("requested_at"),
-  ratingKey: text("rating_key"),
-  seasonCount: integer("season_count"),
-  availableSeasonCount: integer("available_season_count"),
-  fileSize: integer("file_size"),
-  lastSyncedAt: text("last_synced_at"),
-  createdAt: text("created_at")
-    .default(sql`(datetime('now'))`)
-    .notNull(),
-  updatedAt: text("updated_at")
-    .default(sql`(datetime('now'))`)
-    .notNull(),
-});
+export const mediaItems = sqliteTable(
+  "media_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    overseerrId: integer("overseerr_id").unique(),
+    overseerrRequestId: integer("overseerr_request_id"),
+    tmdbId: integer("tmdb_id"),
+    tvdbId: integer("tvdb_id"),
+    imdbId: text("imdb_id"),
+    mediaType: text("media_type", { enum: ["movie", "tv"] }).notNull(),
+    title: text("title").notNull(),
+    posterPath: text("poster_path"),
+    status: text("status", {
+      enum: ["unknown", "pending", "processing", "partial", "available", "removed"],
+    })
+      .default("unknown")
+      .notNull(),
+    requestedByPlexId: text("requested_by_plex_id").references(() => users.plexId),
+    requestedAt: text("requested_at"),
+    ratingKey: text("rating_key"),
+    seasonCount: integer("season_count"),
+    availableSeasonCount: integer("available_season_count"),
+    fileSize: integer("file_size"),
+    inPlex: integer("in_plex", { mode: "boolean" }).default(false).notNull(),
+    inSonarrRadarr: integer("in_sonarr_radarr", { mode: "boolean" }).default(false).notNull(),
+    inOverseerr: integer("in_overseerr", { mode: "boolean" }).default(false).notNull(),
+    lastSyncedAt: text("last_synced_at"),
+    createdAt: text("created_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updatedAt: text("updated_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+  },
+  (table) => [uniqueIndex("media_items_rating_key_idx").on(table.ratingKey)]
+);
 
 export const watchStatus = sqliteTable("watch_status", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -191,6 +198,7 @@ export const deletionLog = sqliteTable("deletion_log", {
   sonarrSuccess: integer("sonarr_success", { mode: "boolean" }),
   radarrSuccess: integer("radarr_success", { mode: "boolean" }),
   overseerrSuccess: integer("overseerr_success", { mode: "boolean" }),
+  plexSuccess: integer("plex_success", { mode: "boolean" }),
   errors: text("errors"),
   createdAt: text("created_at")
     .default(sql`(datetime('now'))`)
@@ -207,6 +215,8 @@ export const syncLog = sqliteTable("sync_log", {
   }).notNull(),
   itemsSynced: integer("items_synced").default(0).notNull(),
   errors: text("errors"),
+  currentLayer: integer("current_layer"),
+  progressMessage: text("progress_message"),
   startedAt: text("started_at")
     .default(sql`(datetime('now'))`)
     .notNull(),

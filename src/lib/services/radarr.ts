@@ -43,6 +43,12 @@ class RadarrClient {
     return data[0] ?? null;
   }
 
+  async getAllMovies(): Promise<RadarrMovie[]> {
+    const data = await this.fetch(`/api/v3/movie`);
+    if (!Array.isArray(data)) return [];
+    return data;
+  }
+
   async deleteMovie(radarrId: number, deleteFiles: boolean): Promise<void> {
     await this.fetch(
       `/api/v3/movie/${radarrId}?deleteFiles=${deleteFiles}&addImportExclusion=true`,

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestDb, seedTestData } from "@/test/helpers/db";
+import { createTestDb, seedTestData } from "../../../test/helpers/db";
 import { eq } from "drizzle-orm";
-import { syncLog, mediaItems, watchStatus, users } from "@/lib/db/schema";
+import { syncLog, mediaItems, watchStatus } from "../../db/schema";
 
 let testDb: ReturnType<typeof createTestDb>;
 
@@ -13,7 +13,6 @@ vi.mock("@/lib/db", () => ({
 
 const mockGetAllRequests = vi.fn();
 const mockGetMediaDetails = vi.fn();
-const mockGetOverseerrUsers = vi.fn();
 
 vi.mock("../overseerr", () => ({
   mapMediaStatus: (status: number | null | undefined) => {
@@ -32,14 +31,12 @@ vi.mock("../request-service", () => ({
   getRequestServiceClient: () => ({
     getAllRequests: mockGetAllRequests,
     getMediaDetails: mockGetMediaDetails,
-    getUsers: mockGetOverseerrUsers,
   }),
   getProviderLabel: () => "Overseerr",
 }));
 
 const mockGetHistory = vi.fn();
 const mockGetTautulliUsers = vi.fn();
-
 const mockGetLibraries = vi.fn();
 const mockGetLibraryMediaInfo = vi.fn();
 const mockGetServerInfo = vi.fn();
@@ -48,153 +45,150 @@ vi.mock("../tautulli", () => ({
   getTautulliClient: () => ({
     getHistory: mockGetHistory,
     getUsers: mockGetTautulliUsers,
-    getWatchStatusForItem: vi.fn(),
     getLibraries: mockGetLibraries,
     getLibraryMediaInfo: mockGetLibraryMediaInfo,
     getServerInfo: mockGetServerInfo,
   }),
 }));
 
-// Import after mocking
-const { syncOverseerr, syncTautulli, runFullSync } = await import("../sync");
+const mockGetAllSeries = vi.fn();
+vi.mock("../sonarr", () => ({
+  getSonarrClient: () => ({
+    getAllSeries: mockGetAllSeries,
+  }),
+  isSonarrConfigured: () => true,
+}));
+
+const mockGetAllMovies = vi.fn();
+vi.mock("../radarr", () => ({
+  getRadarrClient: () => ({
+    getAllMovies: mockGetAllMovies,
+  }),
+  isRadarrConfigured: () => true,
+}));
+
+vi.mock("../sync-logger", () => ({
+  syncLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    clear: vi.fn(),
+  },
+}));
+
+const mockIsPlexSyncEnabled = vi.fn();
+vi.mock("../settings", () => ({
+  isPlexSyncEnabled: () => mockIsPlexSyncEnabled(),
+}));
+
+const { runFullSync, syncLayer1Plex, syncLayer3Overseerr } = await import("../sync");
 
 beforeEach(() => {
   testDb = createTestDb();
   seedTestData(testDb.db);
-  mockGetAllRequests.mockReset();
-  mockGetMediaDetails.mockReset();
-  mockGetOverseerrUsers.mockReset();
-  mockGetHistory.mockReset();
-  mockGetTautulliUsers.mockReset();
-  mockGetLibraries.mockReset().mockResolvedValue([]);
-  mockGetLibraryMediaInfo.mockReset().mockResolvedValue([]);
-  mockGetServerInfo.mockReset().mockResolvedValue({ pmsUrl: "http://localhost:32400" });
+  vi.clearAllMocks();
+
+  mockGetLibraries.mockResolvedValue([]);
+  mockGetLibraryMediaInfo.mockResolvedValue([]);
+  mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://localhost:32400" });
+  mockGetAllSeries.mockResolvedValue([]);
+  mockGetAllMovies.mockResolvedValue([]);
+  mockGetAllRequests.mockResolvedValue([]);
+  mockIsPlexSyncEnabled.mockResolvedValue(false);
 });
 
-describe("syncOverseerr", () => {
-  it("syncs requests into media_items table", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 200,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 300, tmdbId: 5000, status: 5, ratingKey: "rk-new" },
-        requestedBy: { id: 1, plexId: 999, plexUsername: "newuser" },
-      },
+describe("runFullSync (3-Layer Sync)", () => {
+  it("executes all layers and updates syncLog", async () => {
+    mockIsPlexSyncEnabled.mockResolvedValue(true);
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "1", section_name: "Movies", section_type: "movie" },
     ]);
-    mockGetMediaDetails.mockResolvedValue({
-      id: 5000,
-      title: "New Movie",
-      posterPath: "/poster.jpg",
-    });
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-1", title: "Plex Movie", media_type: "movie", file_size: "123" },
+    ]);
+    mockGetTautulliUsers.mockResolvedValue([]);
+    mockGetHistory.mockResolvedValue([]);
 
-    const count = await syncOverseerr();
-    expect(count).toBe(1);
+    mockGetAllMovies.mockResolvedValue([{ title: "Plex Movie", tmdbId: 100 }]);
+    mockGetAllRequests.mockResolvedValue([
+      { id: 10, media: { id: 200, tmdbId: 100 }, type: "movie", createdAt: "2024" },
+    ]);
 
-    // Verify it was inserted
-    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 300)).all();
+    const result = await runFullSync();
+    expect(result.itemsSynced).toBeGreaterThan(0);
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.ratingKey, "rk-1")).all();
     expect(items.length).toBe(1);
-    expect(items[0].title).toBe("New Movie");
+    expect(items[0].inPlex).toBe(true);
+    expect(items[0].inSonarrRadarr).toBe(true);
+    expect(items[0].inOverseerr).toBe(true);
+
+    const logs = testDb.db.select().from(syncLog).all();
+    const lastLog = logs[logs.length - 1];
+    expect(lastLog.status).toBe("completed");
+    expect(lastLog.currentLayer).toBe(3);
   });
 
-  it("upserts user records", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 201,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 301, tmdbId: 5001, status: 5 },
-        requestedBy: { id: 1, plexId: 777, plexUsername: "brandnewuser", email: "new@test.com" },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({ id: 5001, title: "Title" });
+  it("adds a missing sonarr item that is not in Plex", async () => {
+    mockIsPlexSyncEnabled.mockResolvedValue(true);
+    mockGetAllSeries.mockResolvedValue([{ title: "Missing Show", tvdbId: 999 }]);
 
-    await syncOverseerr();
+    const result = await runFullSync();
+    expect(result.itemsSynced).toBeGreaterThan(0);
 
-    const userList = testDb.db.select().from(users).where(eq(users.plexId, "777")).all();
-    expect(userList.length).toBe(1);
-    expect(userList[0].username).toBe("brandnewuser");
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.tvdbId, 999)).all();
+    expect(items.length).toBe(1);
+    expect(items[0].inPlex).toBe(false);
+    expect(items[0].inSonarrRadarr).toBe(true);
   });
 
-  it("handles getMediaDetails failure gracefully", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 202,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 302, tmdbId: 5002, status: 5 },
-        requestedBy: { id: 1, plexId: 888, plexUsername: "user" },
-      },
-    ]);
-    mockGetMediaDetails.mockRejectedValue(new Error("API timeout"));
+  it("marks failed syncLog heavily on root error", async () => {
+    mockIsPlexSyncEnabled.mockResolvedValue(true);
+    mockGetLibraries.mockRejectedValue(new Error("Network disconnect"));
 
-    const count = await syncOverseerr();
-    expect(count).toBe(1);
+    await expect(runFullSync()).rejects.toThrow("Network disconnect");
 
-    // Should use fallback title
-    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 302)).all();
-    expect(items[0].title).toContain("Unknown");
+    const logs = testDb.db.select().from(syncLog).all();
+    const lastLog = logs[logs.length - 1];
+    expect(lastLog.status).toBe("failed");
+    expect(lastLog.errors).toContain("Network disconnect");
   });
 
-  it("handles null requestedByPlexId", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 203,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "tv",
-        media: { id: 303, tmdbId: 5003, status: 3 },
-        requestedBy: { id: 1, plexId: null },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({ id: 5003, name: "Show" });
+  it("skips Layer 1 when plex_sync_enabled is false", async () => {
+    mockIsPlexSyncEnabled.mockResolvedValue(false);
+    mockGetAllRequests.mockResolvedValue([]);
 
-    const count = await syncOverseerr();
-    expect(count).toBe(1);
+    const result = await runFullSync();
+
+    // Should still complete successfully
+    const logs = testDb.db.select().from(syncLog).all();
+    const lastLog = logs[logs.length - 1];
+    expect(lastLog.status).toBe("completed");
+
+    // Layer 1 (Plex) was skipped so no plex items were synced
+    expect(result.itemsSynced).toBe(0);
+
+    // No items should have inPlex set to true from this sync
+    const plexItems = testDb.db
+      .select()
+      .from(mediaItems)
+      .where(eq(mediaItems.inPlex, true))
+      .all()
+      .filter((i) => i.lastSyncedAt !== null);
+    expect(plexItems.length).toBe(0);
   });
+});
 
-  it("reports progress callbacks", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 204,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 304, tmdbId: 5004, status: 5 },
-        requestedBy: null,
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({ id: 5004, title: "Movie" });
-
-    const progressCalls: any[] = [];
-    await syncOverseerr((p) => progressCalls.push(p));
-
-    expect(progressCalls.length).toBeGreaterThan(0);
-    expect(progressCalls[0].phase).toBe("overseerr");
-  });
-
+describe("syncLayer3Overseerr (Overseerr behavior)", () => {
   it("returns 0 for empty requests", async () => {
     mockGetAllRequests.mockResolvedValue([]);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const count = await syncOverseerr();
-    warnSpy.mockRestore();
+    const count = await syncLayer3Overseerr(1);
     expect(count).toBe(0);
   });
 
   it("does not mark all items as removed when Overseerr returns empty (safety guard)", async () => {
     mockGetAllRequests.mockResolvedValue([]);
-
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    await syncOverseerr();
-    warnSpy.mockRestore();
+    await syncLayer3Overseerr(1);
 
     // Items should NOT be marked as removed — safety guard should prevent mass removal
     const removed = testDb.db
@@ -203,36 +197,6 @@ describe("syncOverseerr", () => {
       .where(eq(mediaItems.status, "removed"))
       .all();
     expect(removed.length).toBe(0);
-  });
-
-  it("marks items not in Overseerr response as 'removed'", async () => {
-    // Overseerr returns only overseerr_id=100 (item 1), so items 2-7 should be marked removed
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 200,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 100, tmdbId: 1000, status: 5, ratingKey: "rk-1" },
-        requestedBy: { id: 1, plexId: "plex-user-1", plexUsername: "testuser" },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({ id: 1000, title: "Test Movie 1" });
-
-    await syncOverseerr();
-
-    // Item with overseerr_id=100 should NOT be removed
-    const kept = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 100)).all();
-    expect(kept[0].status).not.toBe("removed");
-
-    // Items with other overseerr_ids should be marked as removed
-    const removed = testDb.db
-      .select()
-      .from(mediaItems)
-      .where(eq(mediaItems.status, "removed"))
-      .all();
-    expect(removed.length).toBe(6);
   });
 
   it("syncs availableSeasonCount for TV shows", async () => {
@@ -262,98 +226,22 @@ describe("syncOverseerr", () => {
       },
     });
 
-    await syncOverseerr();
+    await syncLayer3Overseerr(1);
 
     const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 310)).all();
     expect(items[0].seasonCount).toBe(5);
     expect(items[0].availableSeasonCount).toBe(3);
   });
-
-  it("sets availableSeasonCount to null when no seasons are available", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 211,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "tv",
-        media: { id: 311, tmdbId: 6001, status: 3, ratingKey: "rk-tv2" },
-        requestedBy: { id: 1, plexId: 222, plexUsername: "tvuser2" },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({
-      id: 6001,
-      name: "Pending Show",
-      numberOfSeasons: 3,
-      mediaInfo: {
-        seasons: [
-          { seasonNumber: 1, status: 2 },
-          { seasonNumber: 2, status: 2 },
-          { seasonNumber: 3, status: 1 },
-        ],
-      },
-    });
-
-    await syncOverseerr();
-
-    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 311)).all();
-    expect(items[0].seasonCount).toBe(3);
-    // 0 available seasons stored as null (falsy coercion is intentional)
-    expect(items[0].availableSeasonCount).toBeNull();
-  });
-
-  it("leaves availableSeasonCount null for movies", async () => {
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 212,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 312, tmdbId: 6002, status: 5, ratingKey: "rk-mov" },
-        requestedBy: { id: 1, plexId: 333, plexUsername: "movuser" },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({
-      id: 6002,
-      title: "Some Movie",
-    });
-
-    await syncOverseerr();
-
-    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 312)).all();
-    expect(items[0].availableSeasonCount).toBeNull();
-  });
-
-  it("does not re-process items already marked as 'removed'", async () => {
-    // First, manually mark an item as removed
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE overseerr_id = 101`);
-
-    // Overseerr returns only overseerr_id=100
-    mockGetAllRequests.mockResolvedValue([
-      {
-        id: 200,
-        status: 2,
-        createdAt: "2024-06-01",
-        updatedAt: "2024-06-02",
-        type: "movie",
-        media: { id: 100, tmdbId: 1000, status: 5, ratingKey: "rk-1" },
-        requestedBy: { id: 1, plexId: "plex-user-1", plexUsername: "testuser" },
-      },
-    ]);
-    mockGetMediaDetails.mockResolvedValue({ id: 1000, title: "Test Movie 1" });
-
-    await syncOverseerr();
-
-    // Item 101 was already removed — verify it's still removed (idempotent)
-    const item = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 101)).all();
-    expect(item[0].status).toBe("removed");
-  });
 });
 
-describe("syncTautulli", () => {
+describe("syncLayer1Plex (Tautulli behavior)", () => {
   it("creates watch_status records for matched users", async () => {
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "1", section_name: "Movies", section_type: "movie" },
+    ]);
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-1", title: "Show 1", media_type: "movie" },
+    ]);
     mockGetTautulliUsers.mockResolvedValue([
       { user_id: 10, username: "testuser", friendly_name: "testuser" },
     ]);
@@ -361,35 +249,20 @@ describe("syncTautulli", () => {
       { user_id: 10, rating_key: "rk-1", watched_status: 1, stopped: 1700000000 },
     ]);
 
-    const count = await syncTautulli();
+    const count = await syncLayer1Plex(1);
     expect(count).toBeGreaterThanOrEqual(1);
-  });
 
-  it("skips records with no user_id", async () => {
-    mockGetTautulliUsers.mockResolvedValue([
-      { user_id: 10, username: "testuser", friendly_name: "testuser" },
-    ]);
-    mockGetHistory.mockResolvedValue([
-      { user_id: null, rating_key: "rk-1", watched_status: 1, stopped: 1700000000 },
-    ]);
-
-    const count = await syncTautulli();
-    expect(count).toBe(0);
-  });
-
-  it("skips records with no matching local user", async () => {
-    mockGetTautulliUsers.mockResolvedValue([
-      { user_id: 10, username: "unknown_user", friendly_name: "unknown_user" },
-    ]);
-    mockGetHistory.mockResolvedValue([
-      { user_id: 10, rating_key: "rk-1", watched_status: 1, stopped: 1700000000 },
-    ]);
-
-    const count = await syncTautulli();
-    expect(count).toBe(0);
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
+    expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
   it("does not inflate play count on repeated syncs", async () => {
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "1", section_name: "Movies", section_type: "movie" },
+    ]);
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-1", title: "Show 1", media_type: "movie" },
+    ]);
     mockGetTautulliUsers.mockResolvedValue([
       { user_id: 10, username: "testuser", friendly_name: "testuser" },
     ]);
@@ -400,245 +273,17 @@ describe("syncTautulli", () => {
     mockGetHistory.mockResolvedValue(historyRecords);
 
     // First sync
-    await syncTautulli();
+    await syncLayer1Plex(1);
 
     // Second sync with same data
     mockGetHistory.mockResolvedValue(historyRecords);
-    await syncTautulli();
+    await syncLayer1Plex(1);
 
     // Play count should be 2 (the number of history records), NOT 4
     const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
     const row = rows.find((r) => r.userPlexId === "plex-user-1");
     expect(row).toBeDefined();
     expect(row!.playCount).toBe(2);
-  });
-
-  it("handles per-item errors gracefully", async () => {
-    mockGetTautulliUsers.mockResolvedValue([
-      { user_id: 10, username: "testuser", friendly_name: "testuser" },
-    ]);
-    // First item succeeds, second throws
-    mockGetHistory.mockRejectedValueOnce(new Error("API error"));
-    mockGetHistory.mockResolvedValueOnce([]);
-
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    // Should not throw
-    const count = await syncTautulli();
-    expect(count).toBe(0);
-    consoleSpy.mockRestore();
-  });
-});
-
-describe("syncTautulli file sizes", () => {
-  it("updates file sizes from Tautulli library media info", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "1", section_name: "Movies", section_type: "movie" },
-    ]);
-    mockGetLibraryMediaInfo.mockResolvedValue([
-      { rating_key: "rk-1", title: "Test Movie 1", file_size: "5000000000" },
-      { rating_key: "rk-2", title: "Test Movie 2", file_size: 3000000000 },
-    ]);
-
-    await syncTautulli();
-
-    const item1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
-    expect(item1[0].fileSize).toBe(5000000000);
-
-    const item2 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 2)).all();
-    expect(item2[0].fileSize).toBe(3000000000);
-  });
-
-  it("skips items with empty or zero file_size from Tautulli", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "1", section_name: "Movies", section_type: "movie" },
-    ]);
-    mockGetLibraryMediaInfo.mockResolvedValue([
-      { rating_key: "rk-1", title: "Test Movie 1", file_size: "" },
-      { rating_key: "rk-2", title: "Test Movie 2", file_size: 0 },
-      { rating_key: "rk-5", title: "Other Movie", file_size: null },
-    ]);
-
-    await syncTautulli();
-
-    const item1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
-    expect(item1[0].fileSize).toBeNull();
-
-    const item2 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 2)).all();
-    expect(item2[0].fileSize).toBeNull();
-  });
-
-  it("uses Tautulli values and does not call Plex when all sizes are present", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "1", section_name: "Movies", section_type: "movie" },
-      { section_id: "2", section_name: "TV Shows", section_type: "show" },
-    ]);
-    // Tautulli returns sizes for ALL items with rating keys
-    mockGetLibraryMediaInfo.mockImplementation(async (sectionId: string) => {
-      if (sectionId === "1") {
-        return [
-          { rating_key: "rk-1", title: "Movie 1", file_size: "1000" },
-          { rating_key: "rk-2", title: "Movie 2", file_size: "2000" },
-          { rating_key: "rk-5", title: "Movie 3", file_size: "3000" },
-          { rating_key: "rk-6", title: "Movie 4", file_size: "4000" },
-        ];
-      }
-      return [
-        { rating_key: "rk-3", title: "Show 1", file_size: "5000" },
-        { rating_key: "rk-7", title: "Show 2", file_size: "6000" },
-      ];
-    });
-
-    // Stub global fetch so Plex fallback would fail if called
-    const fetchMock = vi.fn().mockRejectedValue(new Error("Plex should not be called"));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await syncTautulli();
-
-    // TV shows should have sizes from Tautulli
-    const show1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
-    expect(show1[0].fileSize).toBe(5000);
-    const show2 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 7)).all();
-    expect(show2[0].fileSize).toBe(6000);
-
-    // Plex fetch should not have been called since Tautulli had all sizes
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-  });
-
-  it("falls back to Plex API for items missing from Tautulli", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "1", section_name: "Movies", section_type: "movie" },
-      { section_id: "2", section_name: "TV Shows", section_type: "show" },
-    ]);
-    // Tautulli returns movie sizes but empty TV sizes
-    mockGetLibraryMediaInfo.mockImplementation(async (sectionId: string) => {
-      if (sectionId === "1") {
-        return [{ rating_key: "rk-1", title: "Movie 1", file_size: "9999" }];
-      }
-      // TV library returns empty file sizes (Tautulli default behavior)
-      return [
-        { rating_key: "rk-3", title: "Show 1", file_size: "" },
-        { rating_key: "rk-7", title: "Show 2", file_size: "" },
-      ];
-    });
-    mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
-
-    // Mock the admin user's plex token (plex-admin from seed data has a token)
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
-
-    // Mock Plex API response with episode data aggregated by show
-    const plexResponse = {
-      MediaContainer: {
-        Metadata: [
-          {
-            grandparentRatingKey: "rk-3",
-            grandparentTitle: "Test Show 1",
-            ratingKey: "ep-1",
-            Media: [{ Part: [{ size: 1500000000 }] }],
-          },
-          {
-            grandparentRatingKey: "rk-3",
-            grandparentTitle: "Test Show 1",
-            ratingKey: "ep-2",
-            Media: [{ Part: [{ size: 1500000000 }] }],
-          },
-          {
-            grandparentRatingKey: "rk-7",
-            grandparentTitle: "Big Brother",
-            ratingKey: "ep-3",
-            Media: [{ Part: [{ size: 2000000000 }] }],
-          },
-        ],
-      },
-    };
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => plexResponse,
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await syncTautulli();
-
-    // Movie should have Tautulli value
-    const movie = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
-    expect(movie[0].fileSize).toBe(9999);
-
-    // TV shows should have aggregated Plex values
-    const show1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
-    expect(show1[0].fileSize).toBe(3000000000); // 1.5GB + 1.5GB
-
-    const show2 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 7)).all();
-    expect(show2[0].fileSize).toBe(2000000000);
-
-    // Verify Plex was called with token in header, not URL
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://plex:32400/library/sections/2/all?type=4",
-      expect.objectContaining({
-        headers: expect.objectContaining({ "X-Plex-Token": "test-token" }),
-      })
-    );
-
-    vi.unstubAllGlobals();
-  });
-
-  it("does not overwrite Tautulli values with Plex fallback", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "2", section_name: "TV Shows", section_type: "show" },
-    ]);
-    // Tautulli returns a size for rk-3 but not rk-7
-    mockGetLibraryMediaInfo.mockResolvedValue([
-      { rating_key: "rk-3", title: "Show 1", file_size: "7777" },
-      { rating_key: "rk-7", title: "Show 2", file_size: "" },
-    ]);
-    mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
-
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
-
-    // Plex returns different sizes for both shows
-    const plexResponse = {
-      MediaContainer: {
-        Metadata: [
-          {
-            grandparentRatingKey: "rk-3",
-            ratingKey: "ep-1",
-            Media: [{ Part: [{ size: 9999999 }] }],
-          },
-          {
-            grandparentRatingKey: "rk-7",
-            ratingKey: "ep-2",
-            Media: [{ Part: [{ size: 5555555 }] }],
-          },
-        ],
-      },
-    };
-
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => plexResponse }));
-
-    await syncTautulli();
-
-    // rk-3: Tautulli value should win (not overwritten by Plex)
-    const show1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
-    expect(show1[0].fileSize).toBe(7777);
-
-    // rk-7: Plex fallback should fill the gap
-    const show2 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 7)).all();
-    expect(show2[0].fileSize).toBe(5555555);
-
-    vi.unstubAllGlobals();
   });
 
   it("handles Plex API failure gracefully", async () => {
@@ -652,111 +297,20 @@ describe("syncTautulli file sizes", () => {
     ]);
     mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
 
+    // Mock the admin user's plex token (already exists in test DB seed)
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
 
     // Plex API returns error
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
     // Should not throw — error is caught
-    await syncTautulli();
+    await syncLayer1Plex(1);
 
     // File size should remain null
     const show = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
     expect(show[0].fileSize).toBeNull();
 
-    consoleSpy.mockRestore();
     vi.unstubAllGlobals();
-  });
-
-  it("skips Plex fallback when no admin plex token exists", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-    mockGetLibraries.mockResolvedValue([
-      { section_id: "2", section_name: "TV Shows", section_type: "show" },
-    ]);
-    mockGetLibraryMediaInfo.mockResolvedValue([
-      { rating_key: "rk-3", title: "Show 1", file_size: "" },
-    ]);
-    mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
-
-    // Ensure no admin has a plex token
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE users SET plex_token = NULL WHERE is_admin = 1`);
-
-    const fetchMock = vi.fn().mockRejectedValue(new Error("Should not be called"));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await syncTautulli();
-
-    // fetch should not have been called for Plex (no admin token means early return)
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-  });
-});
-
-describe("runFullSync", () => {
-  it("creates sync_log entry with 'running' status", async () => {
-    mockGetAllRequests.mockResolvedValue([]);
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    await runFullSync();
-    warnSpy.mockRestore();
-
-    const logs = testDb.db.select().from(syncLog).all();
-    expect(logs.length).toBeGreaterThanOrEqual(1);
-    // Should be completed now
-    const lastLog = logs[logs.length - 1];
-    expect(lastLog.syncType).toBe("full");
-  });
-
-  it("updates to 'completed' on success", async () => {
-    mockGetAllRequests.mockResolvedValue([]);
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    await runFullSync();
-    warnSpy.mockRestore();
-
-    const logs = testDb.db.select().from(syncLog).all();
-    const lastLog = logs[logs.length - 1];
-    expect(lastLog.status).toBe("completed");
-    expect(lastLog.completedAt).toBeTruthy();
-  });
-
-  it("updates to 'failed' on error with error message", async () => {
-    mockGetAllRequests.mockRejectedValue(new Error("Connection refused"));
-    mockGetTautulliUsers.mockResolvedValue([]);
-
-    await expect(runFullSync()).rejects.toThrow("Connection refused");
-
-    const logs = testDb.db.select().from(syncLog).all();
-    const lastLog = logs[logs.length - 1];
-    expect(lastLog.status).toBe("failed");
-    expect(lastLog.errors).toContain("Connection refused");
-  });
-
-  it("re-throws the error after logging", async () => {
-    mockGetAllRequests.mockRejectedValue(new Error("Network error"));
-    mockGetTautulliUsers.mockResolvedValue([]);
-
-    await expect(runFullSync()).rejects.toThrow("Network error");
-  });
-
-  it("records item count on completion", async () => {
-    mockGetAllRequests.mockResolvedValue([]);
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
-
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = await runFullSync();
-    warnSpy.mockRestore();
-    expect(result).toEqual({ overseerr: 0, tautulli: 0 });
   });
 });

@@ -23,6 +23,9 @@ interface BaseMediaCardProps {
   seasonCount: number | null;
   availableSeasonCount: number | null;
 
+  inPlex?: boolean;
+  ratingKey?: string | null;
+
   keepSeasons?: number | null;
 
   watchStatus?: WatchStatusSummary | null;
@@ -47,6 +50,8 @@ export function BaseMediaCard({
   overseerrId,
   seasonCount,
   availableSeasonCount,
+  inPlex,
+  ratingKey,
   keepSeasons,
   watchStatus,
   fileSize,
@@ -61,6 +66,11 @@ export function BaseMediaCard({
       <ClickablePoster posterPath={posterPath} title={title} onClick={() => setShowDetail(true)}>
         <div className="absolute top-2 left-2 flex gap-1">
           <MediaTypeBadge mediaType={mediaType} />
+          {(inPlex || !!ratingKey) && (
+            <span className="rounded bg-orange-900/80 px-2 py-0.5 text-xs text-orange-300">
+              Plex
+            </span>
+          )}
           <span
             className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
           >

@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
-import { eq, count, desc, inArray, ne, sql, and } from "drizzle-orm";
+import { eq, count, desc, inArray, sql } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { AutoSyncSettings } from "@/components/admin/AutoSyncSettings";
+import { PlexSyncToggle } from "@/components/admin/PlexSyncToggle";
 import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
 import { AppVersion } from "@/components/ui/AppVersion";
-import { getSyncScheduleSettings } from "@/lib/services/settings";
+import { getSyncScheduleSettings, isPlexSyncEnabled } from "@/lib/services/settings";
 
 export default async function AdminPage() {
   const session = await getSession();
@@ -28,6 +29,9 @@ export default async function AdminPage() {
 
   // Sync schedule settings
   const syncScheduleSettings = await getSyncScheduleSettings();
+
+  // Plex sync opt-in
+  const plexSyncEnabled = await isPlexSyncEnabled();
 
   // Per-user stats
   const userStats = await db
@@ -88,6 +92,9 @@ export default async function AdminPage() {
 
         {/* Sync */}
         <SyncStatus lastSync={lastSync} />
+
+        {/* Plex Library Sync Toggle */}
+        <PlexSyncToggle initialEnabled={plexSyncEnabled} />
 
         {/* Auto Sync */}
         <AutoSyncSettings initialSettings={syncScheduleSettings} />

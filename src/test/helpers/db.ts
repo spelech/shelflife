@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "@/lib/db/schema";
+import * as schema from "../../lib/db/schema";
 
 export function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -33,10 +33,13 @@ export function createTestDb() {
       status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN ('unknown', 'pending', 'processing', 'partial', 'available', 'removed')),
       requested_by_plex_id TEXT REFERENCES users(plex_id),
       requested_at TEXT,
-      rating_key TEXT,
+      rating_key TEXT UNIQUE,
       season_count INTEGER,
       available_season_count INTEGER,
       file_size INTEGER,
+      in_plex INTEGER NOT NULL DEFAULT 0,
+      in_sonarr_radarr INTEGER NOT NULL DEFAULT 0,
+      in_overseerr INTEGER NOT NULL DEFAULT 0,
       last_synced_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -124,6 +127,7 @@ export function createTestDb() {
       sonarr_success INTEGER,
       radarr_success INTEGER,
       overseerr_success INTEGER,
+      plex_success INTEGER,
       errors TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -134,6 +138,8 @@ export function createTestDb() {
       status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
       items_synced INTEGER NOT NULL DEFAULT 0,
       errors TEXT,
+      current_layer INTEGER,
+      progress_message TEXT,
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       completed_at TEXT
     );
