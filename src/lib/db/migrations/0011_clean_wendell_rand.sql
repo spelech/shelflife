@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `media_items_rating_key_idx` ON `media_items` (`rating_key`);

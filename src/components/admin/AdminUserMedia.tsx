@@ -122,6 +122,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
               overseerrId={item.overseerrId}
               seasonCount={item.seasonCount}
               availableSeasonCount={item.availableSeasonCount}
+              inPlex={item.inPlex}
               watchStatus={item.watchStatus}
               fileSize={item.fileSize}
             >

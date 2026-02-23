@@ -43,6 +43,12 @@ class SonarrClient {
     return data[0] ?? null;
   }
 
+  async getAllSeries(): Promise<SonarrSeries[]> {
+    const data = await this.fetch(`/api/v3/series`);
+    if (!Array.isArray(data)) return [];
+    return data;
+  }
+
   async deleteSeries(sonarrId: number, deleteFiles: boolean): Promise<void> {
     await this.fetch(
       `/api/v3/series/${sonarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`,

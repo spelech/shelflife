@@ -1,6 +1,25 @@
 import { db } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+
+// ── Plex Library Sync Toggle ──────────────────────────────────────────
+const PLEX_SYNC_KEY = "plex_sync_enabled";
+
+export async function isPlexSyncEnabled(): Promise<boolean> {
+  const rows = await db.select().from(appSettings).where(eq(appSettings.key, PLEX_SYNC_KEY));
+  return rows.length > 0 && rows[0].value === "true";
+}
+
+export async function setPlexSyncEnabled(enabled: boolean): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .insert(appSettings)
+    .values({ key: PLEX_SYNC_KEY, value: String(enabled), updatedAt: now })
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: { value: String(enabled), updatedAt: now },
+    });
+}
 
 export interface SyncScheduleSettings {
   enabled: boolean;

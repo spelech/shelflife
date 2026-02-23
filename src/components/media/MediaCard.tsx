@@ -22,6 +22,8 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
       overseerrId={item.overseerrId}
       seasonCount={item.seasonCount}
       availableSeasonCount={item.availableSeasonCount}
+      inPlex={item.inPlex}
+      ratingKey={item.ratingKey}
       keepSeasons={item.vote === "trim" ? item.keepSeasons : null}
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}

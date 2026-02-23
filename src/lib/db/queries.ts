@@ -23,6 +23,7 @@ const mediaItemColumns = {
   seasonCount: mediaItems.seasonCount,
   availableSeasonCount: mediaItems.availableSeasonCount,
   fileSize: mediaItems.fileSize,
+  inPlex: mediaItems.inPlex,
   vote: userVotes.vote,
   keepSeasons: userVotes.keepSeasons,
   watched: watchStatus.watched,
@@ -75,6 +76,7 @@ export function mapMediaItemRow(
     seasonCount: i.seasonCount || null,
     availableSeasonCount: i.availableSeasonCount || null,
     fileSize: i.fileSize ?? null,
+    inPlex: i.inPlex,
     vote: i.vote || null,
     keepSeasons: i.keepSeasons || null,
     watchStatus:
@@ -246,6 +248,7 @@ export async function getCandidatesForRound(roundId: number) {
       tvdbId: mediaItems.tvdbId,
       overseerrId: mediaItems.overseerrId,
       imdbId: mediaItems.imdbId,
+      ratingKey: mediaItems.ratingKey,
       requestedByUsername: users.username,
       nominatedByUsernames,
       seasonCount: mediaItems.seasonCount,
@@ -258,6 +261,7 @@ export async function getCandidatesForRound(roundId: number) {
       actedAt: actionSubquery.actedAt,
       actionByUsername: actionByUser.username,
       fileSize: mediaItems.fileSize,
+      inPlex: mediaItems.inPlex,
       updatedAt: mediaItems.updatedAt,
     })
     .from(mediaItems)

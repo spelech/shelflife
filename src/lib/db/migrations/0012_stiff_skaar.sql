@@ -1,0 +1,1 @@
+ALTER TABLE `deletion_log` ADD `plex_success` integer;
