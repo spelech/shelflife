@@ -61,6 +61,17 @@ After this, Tautulli will return TV show file sizes in its API, and Shelflife wi
 
 \* One of `SEERR_URL`/`SEERR_API_KEY`, `OVERSEERR_URL`/`OVERSEERR_API_KEY`, or `JELLYSEERR_URL`/`JELLYSEERR_API_KEY` must be set. When multiple are configured, Seerr takes priority.
 
+## Local Development (Faster UI Iteration)
+
+If you are developing or making UI changes and want hot-reloading without building a Docker container every time:
+
+1. Install [Bun](https://bun.sh/)
+2. Run the local dev script:
+   ```bash
+   bun run dev:local
+   ```
+   This script will automatically copy `.env.example` to `.env` (if you don't already have one), ensure the SQLite database migrations are up to date, and start the Next.js dev server at the port specified in your `.env` (defaulting to `http://localhost:3000`). You can edit the UI files and see them update instantly.
+
 ## Running with Docker Compose
 
 ```yaml
