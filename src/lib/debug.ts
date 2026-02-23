@@ -15,7 +15,7 @@ const isEnabled =
 function createLogger(prefix: string) {
   return (...args: unknown[]) => {
     if (isEnabled) {
-      console.log(`[DEBUG:${prefix}]`, ...args);
+      console.info(`[DEBUG:${prefix}]`, ...args);
     }
   };
 }

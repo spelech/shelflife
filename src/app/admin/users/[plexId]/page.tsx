@@ -84,8 +84,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <AdminUserContent
           plexId={plexId}
-          totalRequests={totalRequests}
-          activeRequests={activeRequests}
+          totalItems={totalRequests}
+          activeItems={activeRequests}
           nominatedCount={nominatedCount}
           notNominatedCount={notNominatedCount}
           watchedCount={watchedCount}

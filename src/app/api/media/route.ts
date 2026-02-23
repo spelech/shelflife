@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
-import { eq, and, ne, isNull, inArray, like, type SQL } from "drizzle-orm";
+import { eq, and, ne, isNull, inArray, like, or, type SQL } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,10 +26,22 @@ export async function GET(request: NextRequest) {
     // Write endpoints (POST /api/media/[id]/vote) separately enforce ownership.
     // When status=all, hide removed items so they don't clutter the default view.
     // Users can explicitly select ?status=removed to see them.
+    // no_requester is a pseudo-status: filter by requestedByPlexId IS NULL instead of status column.
     const conditions: SQL[] = [];
-    if (query.scope === "personal") {
-      conditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
+    if (query.source === "all_requests") {
+      conditions.push(eq(mediaItems.inOverseerr, true));
+    } else if (query.source === "my_requests") {
+      conditions.push(
+        and(eq(mediaItems.inOverseerr, true), eq(mediaItems.requestedByPlexId, session.plexId))!
+      );
+    } else if (query.source === "my_media") {
+      conditions.push(
+        or(eq(watchStatus.watched, true), eq(mediaItems.requestedByPlexId, session.plexId))!
+      );
+    } else if (query.source === "unrequested") {
+      conditions.push(and(eq(mediaItems.inPlex, true), eq(mediaItems.inOverseerr, false))!);
     }
+    // all_media applies no filter
     if (query.status === "all") {
       conditions.push(ne(mediaItems.status, "removed"));
     }

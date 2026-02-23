@@ -30,7 +30,15 @@ export const mediaItems = sqliteTable(
     title: text("title").notNull(),
     posterPath: text("poster_path"),
     status: text("status", {
-      enum: ["unknown", "pending", "processing", "partial", "available", "removed"],
+      enum: [
+        "unknown",
+        "pending",
+        "processing",
+        "partial",
+        "available",
+        "removed",
+        "not_requested",
+      ],
     })
       .default("unknown")
       .notNull(),

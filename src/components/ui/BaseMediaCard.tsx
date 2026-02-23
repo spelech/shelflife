@@ -9,6 +9,16 @@ import { STATUS_COLORS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
 import type { MediaStatus, MediaType, WatchStatusSummary } from "@/types";
 
+const STATUS_LABELS: Partial<Record<MediaStatus, string>> = {
+  available: "Available",
+  partial: "Partial",
+  processing: "Processing",
+  pending: "Pending",
+  removed: "Removed",
+  not_requested: "Not Requested",
+  // "unknown" is intentionally omitted — it means the DB default, not a useful state to display
+};
+
 interface BaseMediaCardProps {
   title: string;
   mediaType: MediaType;
@@ -24,6 +34,8 @@ interface BaseMediaCardProps {
   availableSeasonCount: number | null;
 
   inPlex?: boolean;
+  inOverseerr?: boolean;
+  inSonarrRadarr?: boolean;
   ratingKey?: string | null;
 
   keepSeasons?: number | null;
@@ -51,6 +63,8 @@ export function BaseMediaCard({
   seasonCount,
   availableSeasonCount,
   inPlex,
+  inOverseerr,
+  inSonarrRadarr,
   ratingKey,
   keepSeasons,
   watchStatus,
@@ -66,16 +80,24 @@ export function BaseMediaCard({
       <ClickablePoster posterPath={posterPath} title={title} onClick={() => setShowDetail(true)}>
         <div className="absolute top-2 left-2 flex gap-1">
           <MediaTypeBadge mediaType={mediaType} />
-          {(inPlex || !!ratingKey) && (
+          {inOverseerr && (
+            <span className="rounded bg-sky-900/80 px-2 py-0.5 text-xs text-sky-300">Seerr</span>
+          )}
+          {inSonarrRadarr && (
+            <span className="rounded bg-blue-900/80 px-2 py-0.5 text-xs text-blue-300">*arr</span>
+          )}
+          {(inPlex || !!ratingKey) && !inOverseerr && (
             <span className="rounded bg-orange-900/80 px-2 py-0.5 text-xs text-orange-300">
               Plex
             </span>
           )}
-          <span
-            className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
-          >
-            {status}
-          </span>
+          {STATUS_LABELS[status] && (
+            <span
+              className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
+            >
+              {STATUS_LABELS[status]}
+            </span>
+          )}
         </div>
         {watchStatus?.watched && (
           <div className="absolute top-2 right-2">

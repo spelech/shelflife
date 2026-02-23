@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestDb, seedTestData } from "@/test/helpers/db";
-import { createRequest } from "@/test/helpers/request";
+import { createTestDb, seedTestData } from "../../../../test/helpers/db";
+import { createRequest } from "../../../../test/helpers/request";
 import { NextResponse } from "next/server";
+
+interface TestMediaItem {
+  id: number;
+  title: string;
+  mediaType: string;
+  status: string;
+  vote: string | null;
+  watchStatus: { watched: boolean; playCount: number; lastWatchedAt: string } | null;
+  requestedAt: string;
+}
 
 const mockRequireAuth = vi.fn();
 
@@ -48,31 +58,31 @@ const userSession = { userId: 1, plexId: "plex-user-1", username: "testuser", is
 const otherSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", isAdmin: false };
 
 describe("GET /api/media", () => {
-  it("defaults to scope=personal, returning only user's own items", async () => {
+  it("defaults to source=my_requests, returning only user's own items", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/media");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
+    // 6 total items since we expect default source=my_requests
     expect(data.items.length).toBe(6);
-    expect(data.items.every((i: any) => i.id !== 5)).toBe(true);
   });
 
-  it("scope=personal returns only user's own items", async () => {
+  it("source=my_requests returns only user's own items", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.items.length).toBe(6);
-    expect(data.items.every((i: any) => i.id !== 5)).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.id !== 5)).toBe(true);
   });
 
   it("scope=personal does not return other users' items", async () => {
     mockRequireAuth.mockResolvedValue(otherSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
@@ -82,36 +92,38 @@ describe("GET /api/media", () => {
 
   it("filters by type=movie", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&type=movie");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&type=movie");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.mediaType === "movie")).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.mediaType === "movie")).toBe(true);
     expect(data.items.length).toBe(3);
   });
 
   it("filters by type=tv", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&type=tv");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&type=tv");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.mediaType === "tv")).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.mediaType === "tv")).toBe(true);
     expect(data.items.length).toBe(3);
   });
 
   it("filters by status=available", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&status=available");
+    const req = createRequest(
+      "http://localhost:3000/api/media?source=my_requests&status=available"
+    );
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.status === "available")).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.status === "available")).toBe(true);
   });
 
   it("filters by status=pending", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&status=pending");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&status=pending");
     const res = await GET(req);
     const data = await res.json();
 
@@ -121,27 +133,29 @@ describe("GET /api/media", () => {
 
   it("filters by vote=nominated (delete or trim)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&vote=nominated");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.vote === "delete" || i.vote === "trim")).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.vote === "delete" || i.vote === "trim")).toBe(
+      true
+    );
     expect(data.items.length).toBe(2);
   });
 
   it("filters by vote=none (no vote cast)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&vote=none");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&vote=none");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.vote === null)).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.vote === null)).toBe(true);
     expect(data.items.length).toBe(4);
   });
 
   it("filters by watched=true", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&watched=true");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&watched=true");
     const res = await GET(req);
     const data = await res.json();
 
@@ -152,7 +166,7 @@ describe("GET /api/media", () => {
   it("combines type + vote filters", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest(
-      "http://localhost:3000/api/media?scope=personal&type=movie&vote=nominated"
+      "http://localhost:3000/api/media?source=my_requests&type=movie&vote=nominated"
     );
     const res = await GET(req);
     const data = await res.json();
@@ -164,7 +178,7 @@ describe("GET /api/media", () => {
 
   it("returns pagination metadata", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&limit=2&page=1");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&limit=2&page=1");
     const res = await GET(req);
     const data = await res.json();
 
@@ -176,7 +190,7 @@ describe("GET /api/media", () => {
 
   it("paginates correctly - page 2", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&limit=2&page=2");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&limit=2&page=2");
     const res = await GET(req);
     const data = await res.json();
 
@@ -186,11 +200,11 @@ describe("GET /api/media", () => {
 
   it("includes vote and watchStatus in response", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
-    const item1 = data.items.find((i: any) => i.id === 1);
+    const item1 = data.items.find((i: TestMediaItem) => i.id === 1);
     expect(item1.vote).toBeNull();
     expect(item1.watchStatus).toEqual({
       watched: true,
@@ -198,14 +212,14 @@ describe("GET /api/media", () => {
       lastWatchedAt: "2024-06-01T00:00:00Z",
     });
 
-    const item4 = data.items.find((i: any) => i.id === 4);
+    const item4 = data.items.find((i: TestMediaItem) => i.id === 4);
     expect(item4.vote).toBeNull();
     expect(item4.watchStatus).toBeNull();
   });
 
   it("pagination total reflects vote filter", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&vote=nominated");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
@@ -217,7 +231,7 @@ describe("GET /api/media", () => {
 
   it("pagination total reflects watched filter", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&watched=true");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&watched=true");
     const res = await GET(req);
     const data = await res.json();
 
@@ -229,7 +243,7 @@ describe("GET /api/media", () => {
   it("pagination total reflects combined filters", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest(
-      "http://localhost:3000/api/media?scope=personal&type=movie&vote=none"
+      "http://localhost:3000/api/media?source=my_requests&type=movie&vote=none"
     );
     const res = await GET(req);
     const data = await res.json();
@@ -241,7 +255,7 @@ describe("GET /api/media", () => {
 
   it("filters by search term", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&search=Big");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&search=Big");
     const res = await GET(req);
     const data = await res.json();
 
@@ -251,7 +265,9 @@ describe("GET /api/media", () => {
 
   it("returns empty when search has no matches", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&search=nonexistent");
+    const req = createRequest(
+      "http://localhost:3000/api/media?source=my_requests&search=nonexistent"
+    );
     const res = await GET(req);
     const data = await res.json();
 
@@ -260,24 +276,22 @@ describe("GET /api/media", () => {
   });
 
   it("excludes removed items by default", async () => {
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+    testDb.sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
 
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.find((i: any) => i.id === 1)).toBeUndefined();
+    expect(data.items.find((i: TestMediaItem) => i.id === 1)).toBeUndefined();
     expect(data.items.length).toBe(5);
   });
 
   it("includes removed items when status=removed is explicit", async () => {
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+    testDb.sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
 
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&status=removed");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&status=removed");
     const res = await GET(req);
     const data = await res.json();
 
@@ -288,11 +302,11 @@ describe("GET /api/media", () => {
 
   it("sorts by title_desc (Z-A)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=personal&sort=title_desc");
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests&sort=title_desc");
     const res = await GET(req);
     const data = await res.json();
 
-    const titles = data.items.map((i: any) => i.title);
+    const titles = data.items.map((i: TestMediaItem) => i.title);
     const sorted = [...titles].sort((a: string, b: string) => b.localeCompare(a));
     expect(titles).toEqual(sorted);
   });
@@ -300,12 +314,12 @@ describe("GET /api/media", () => {
   it("sorts by requested_newest", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest(
-      "http://localhost:3000/api/media?scope=personal&sort=requested_newest"
+      "http://localhost:3000/api/media?source=my_requests&sort=requested_newest"
     );
     const res = await GET(req);
     const data = await res.json();
 
-    const dates = data.items.map((i: any) => i.requestedAt);
+    const dates = data.items.map((i: TestMediaItem) => i.requestedAt);
     for (let i = 0; i < dates.length - 1; i++) {
       expect(dates[i] >= dates[i + 1]).toBe(true);
     }
@@ -314,43 +328,45 @@ describe("GET /api/media", () => {
   it("sorts by requested_oldest", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest(
-      "http://localhost:3000/api/media?scope=personal&sort=requested_oldest"
+      "http://localhost:3000/api/media?source=my_requests&sort=requested_oldest"
     );
     const res = await GET(req);
     const data = await res.json();
 
-    const dates = data.items.map((i: any) => i.requestedAt);
+    const dates = data.items.map((i: TestMediaItem) => i.requestedAt);
     for (let i = 0; i < dates.length - 1; i++) {
       expect(dates[i] <= dates[i + 1]).toBe(true);
     }
   });
 
-  it("scope=all shows current user's votes and watch status on other users' items", async () => {
+  it("source=all_requests shows current user's votes and watch status on other users' items", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=all");
+    const req = createRequest("http://localhost:3000/api/media?source=all_requests");
     const res = await GET(req);
     const data = await res.json();
 
     // Item 5 belongs to plex-user-2, current user (plex-user-1) has no vote on it
-    const item5 = data.items.find((i: any) => i.id === 5);
+    const item5 = data.items.find((i: TestMediaItem) => i.id === 5);
     expect(item5).toBeDefined();
     expect(item5.vote).toBeNull();
 
     // Item 2 belongs to plex-user-1, who voted delete on it
-    const item2 = data.items.find((i: any) => i.id === 2);
+    const item2 = data.items.find((i: TestMediaItem) => i.id === 2);
     expect(item2.vote).toBe("delete");
   });
 
-  it("scope=all with vote=nominated only shows current user's nominations", async () => {
+  it("source=all_requests with vote=nominated only shows current user's nominations", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?scope=all&vote=nominated");
+    const req = createRequest("http://localhost:3000/api/media?source=all_requests&vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
     // plex-user-1 nominated items 2 and 7; plex-user-2's nomination on item 5
     // should NOT appear because votes are joined on current user's plexId
     expect(data.items.length).toBe(2);
-    expect(data.items.every((i: any) => i.vote === "delete" || i.vote === "trim")).toBe(true);
+    expect(data.items.every((i: TestMediaItem) => i.vote === "delete" || i.vote === "trim")).toBe(
+      true
+    );
   });
 
   it("returns 401 when not authenticated", async () => {

@@ -5,7 +5,7 @@ import { getSyncScheduleSettings, updateSyncScheduleSettings } from "@/lib/servi
 import { rescheduleSync } from "@/lib/services/cron";
 import cron from "node-cron";
 
-export async function GET() {
+export async function GET(_request?: NextRequest) {
   try {
     await requireAdmin();
     const settings = await getSyncScheduleSettings();

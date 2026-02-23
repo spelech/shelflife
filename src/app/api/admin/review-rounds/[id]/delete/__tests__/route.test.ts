@@ -35,7 +35,7 @@ vi.mock("@/lib/db", () => ({
     return testDb.db;
   },
   get sqlite() {
-    return (testDb.db as any).session.client;
+    return testDb.sqlite;
   },
 }));
 
@@ -112,7 +112,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
 
   it("returns 400 for closed round", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // Create a round and close it
     sqlite.exec(
@@ -132,7 +132,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
 
   it("returns 400 when no remove action exists", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // Create an active round but don't add any review action
     sqlite.exec(
@@ -152,7 +152,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
 
   it("returns 400 when action is 'keep' (blocks deletion)", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // Create active round with a "keep" action — deletion should be blocked
     sqlite.exec(
@@ -176,7 +176,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
 
   it("returns 400 when media item already removed", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // Set media item 1 status to "removed"
     sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
@@ -202,7 +202,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
 
   it("returns 200 and calls executeMediaDeletion on success", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
 
     // Create active round with remove action for item 1
     sqlite.exec(
@@ -217,6 +217,7 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
       sonarr: { attempted: false, success: null },
       radarr: { attempted: true, success: true },
       overseerr: { attempted: true, success: true },
+      plex: { attempted: false, success: null },
     };
     vi.mocked(executeMediaDeletion).mockResolvedValue(mockResult);
 

@@ -38,8 +38,8 @@ export default async function AdminPage() {
     .select({
       username: users.username,
       plexId: users.plexId,
-      totalRequests: count(mediaItems.id),
-      activeRequests: sql<number>`count(case when ${mediaItems.status} != 'removed' then 1 end)`,
+      totalItems: count(mediaItems.id),
+      activeItems: sql<number>`count(case when ${mediaItems.status} != 'removed' then 1 end)`,
     })
     .from(users)
     .leftJoin(mediaItems, eq(mediaItems.requestedByPlexId, users.plexId))
@@ -119,8 +119,8 @@ export default async function AdminPage() {
                         {u.username}
                       </a>
                     </td>
-                    <td className="py-3 pr-4">{u.activeRequests}</td>
-                    <td className="py-3 text-gray-500">{u.totalRequests}</td>
+                    <td className="py-3 pr-4">{u.activeItems}</td>
+                    <td className="py-3 text-gray-500">{u.totalItems}</td>
                   </tr>
                 ))}
               </tbody>

@@ -7,20 +7,20 @@ import { ReviewStatusBanner } from "../ui/ReviewStatusBanner";
 import type { VoteValue } from "@/types";
 
 interface DashboardContentProps {
-  totalRequests: number;
+  totalItems: number;
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
 }
 
 export function DashboardContent({
-  totalRequests: initialTotal,
+  totalItems: initialTotal,
   nominatedCount: initialNominated,
   notNominatedCount: initialNotNominated,
   watchedCount: initialWatched,
 }: DashboardContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
-  const [scope, setScope] = useState("personal");
+  const [source, setSource] = useState("my_requests");
   const [stats, setStats] = useState({
     total: initialTotal,
     nominated: initialNominated,
@@ -31,14 +31,14 @@ export function DashboardContent({
   const abortControllerRef = useRef<AbortController | null>(null);
   const statsVersionRef = useRef(0);
 
-  const fetchStats = useCallback(async (newScope: string) => {
+  const fetchStats = useCallback(async (newSource: string) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const versionAtStart = statsVersionRef.current;
 
     try {
-      const res = await fetch(`/api/media/stats?scope=${newScope}`, {
+      const res = await fetch(`/api/media/stats?source=${newSource}`, {
         signal: controller.signal,
       });
       if (res.ok) {
@@ -58,11 +58,11 @@ export function DashboardContent({
     }
   }, []);
 
-  const handleScopeChange = useCallback(
-    (newScope: string) => {
-      setScope(newScope);
+  const handleSourceChange = useCallback(
+    (newSource: string) => {
+      setSource(newSource);
       setStatsFilter(null);
-      fetchStats(newScope);
+      fetchStats(newSource);
     },
     [fetchStats]
   );
@@ -93,7 +93,7 @@ export function DashboardContent({
     <>
       <ReviewStatusBanner mode="nominating" />
       <UserStats
-        totalRequests={stats.total}
+        totalItems={stats.total}
         nominatedCount={stats.nominated}
         notNominatedCount={stats.notNominated}
         watchedCount={stats.watched}
@@ -102,12 +102,17 @@ export function DashboardContent({
       />
       <div>
         <h2 className="mb-4 text-lg font-semibold">
-          {scope === "personal" ? "Your Requests" : "All Users\u2019 Requests"}
+          {source === "my_requests" && "Your Requests"}
+          {source === "all_requests" && "All Requests"}
+          {source === "my_media" && "My Activity"}
+          {source === "unrequested" && "Plex Direct"}
+          {source === "all_media" && "Everything"}
         </h2>
         <MediaGrid
           statsFilter={statsFilter}
           onVoteChange={handleVoteChange}
-          onScopeChange={handleScopeChange}
+          source={source}
+          onSourceChange={handleSourceChange}
         />
       </div>
     </>

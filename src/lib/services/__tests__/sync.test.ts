@@ -297,9 +297,7 @@ describe("syncLayer1Plex (Tautulli behavior)", () => {
     ]);
     mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
 
-    // Mock the admin user's plex token (already exists in test DB seed)
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
+    testDb.sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
 
     // Plex API returns error
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));

@@ -35,7 +35,7 @@ vi.mock("@/lib/db", () => ({
     return testDb.db;
   },
   get sqlite() {
-    return (testDb.db as any).session.client;
+    return testDb.sqlite;
   },
 }));
 
@@ -44,7 +44,7 @@ const { GET, POST } = await import("../route");
 const userSession = { userId: 1, plexId: "plex-user-1", username: "testuser", isAdmin: false };
 
 function createActiveRound() {
-  const sqlite = (testDb.db as any).session.client;
+  const sqlite = testDb.sqlite;
   sqlite.exec(
     `INSERT INTO review_rounds (name, status, created_by_plex_id) VALUES ('Test Round', 'active', 'plex-admin')`
   );

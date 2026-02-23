@@ -59,9 +59,36 @@ export function mediaCountWithJoins(plexId: string) {
     );
 }
 
-export function mapMediaItemRow(
-  i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never
-) {
+export interface MediaItemRow {
+  id: number;
+  overseerrId: number | null;
+  tmdbId: number | null;
+  imdbId: string | null;
+  mediaType: "movie" | "tv";
+  title: string;
+  posterPath: string | null;
+  status:
+    | "unknown"
+    | "pending"
+    | "processing"
+    | "partial"
+    | "available"
+    | "removed"
+    | "not_requested";
+  requestedAt: string | null;
+  ratingKey: string | null;
+  seasonCount: number | null;
+  availableSeasonCount: number | null;
+  fileSize: number | null;
+  inPlex: boolean;
+  vote: "delete" | "trim" | null;
+  keepSeasons: number | null;
+  watched: boolean | null;
+  playCount: number | null;
+  lastWatchedAt: string | null;
+}
+
+export function mapMediaItemRow(i: MediaItemRow) {
   return {
     id: i.id,
     overseerrId: i.overseerrId,
@@ -113,14 +140,32 @@ export function getNominationCondition() {
  * Shared stats computation used by both the stats API endpoint
  * and the dashboard page server-side rendering.
  */
-export async function computeMediaStats(plexId: string, scope: "personal" | "all") {
-  const scopeCondition: SQL | undefined =
-    scope === "personal" ? eq(mediaItems.requestedByPlexId, plexId) : undefined;
+export async function computeMediaStats(plexId: string, source: string) {
+  const conditions: SQL[] = [];
+  if (source === "all_requests") {
+    conditions.push(eq(mediaItems.inOverseerr, true));
+  } else if (source === "my_requests") {
+    conditions.push(
+      and(eq(mediaItems.inOverseerr, true), eq(mediaItems.requestedByPlexId, plexId))!
+    );
+  } else if (source === "my_media") {
+    conditions.push(or(eq(watchStatus.watched, true), eq(mediaItems.requestedByPlexId, plexId))!);
+  } else if (source === "unrequested") {
+    conditions.push(and(eq(mediaItems.inPlex, true), eq(mediaItems.inOverseerr, false))!);
+  }
+
+  const baseCondition = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [totalResult] = await db
     .select({ total: count() })
     .from(mediaItems)
-    .where(and(ne(mediaItems.status, "removed"), scopeCondition));
+    .leftJoin(
+      watchStatus,
+      and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
+    )
+    .where(
+      and(ne(mediaItems.status, "removed"), ne(mediaItems.status, "not_requested"), baseCondition)
+    );
 
   const [nominatedResult] = await db
     .select({ total: count() })
@@ -129,11 +174,16 @@ export async function computeMediaStats(plexId: string, scope: "personal" | "all
       userVotes,
       and(eq(userVotes.mediaItemId, mediaItems.id), eq(userVotes.userPlexId, plexId))
     )
+    .leftJoin(
+      watchStatus,
+      and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
+    )
     .where(
       and(
         ne(mediaItems.status, "removed"),
+        ne(mediaItems.status, "not_requested"),
         inArray(userVotes.vote, ["delete", "trim"]),
-        scopeCondition
+        baseCondition
       )
     );
 
@@ -144,7 +194,14 @@ export async function computeMediaStats(plexId: string, scope: "personal" | "all
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
     )
-    .where(and(ne(mediaItems.status, "removed"), eq(watchStatus.watched, true), scopeCondition));
+    .where(
+      and(
+        ne(mediaItems.status, "removed"),
+        ne(mediaItems.status, "not_requested"),
+        eq(watchStatus.watched, true),
+        baseCondition
+      )
+    );
 
   const total = totalResult?.total || 0;
   const nominated = nominatedResult?.total || 0;

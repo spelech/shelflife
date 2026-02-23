@@ -110,7 +110,7 @@ export function PlexLoginButton() {
     if (pendingPinId) {
       resumedRef.current = true;
       sessionStorage.removeItem(STORAGE_KEY);
-      console.log("[shelflife] Resuming auth after redirect, pinId:", pendingPinId);
+      console.info("[shelflife] Resuming auth after redirect, pinId:", pendingPinId);
       startPolling(pendingPinId);
     }
   }, [startPolling]);
@@ -137,13 +137,13 @@ export function PlexLoginButton() {
       if (popup && !isPopupClosed(popup)) {
         // Desktop: navigate the pre-opened popup to Plex auth
         popup.location.href = authUrl;
-        console.log("[shelflife] PIN created, polling for auth...", { pinId });
+        console.info("[shelflife] PIN created, polling for auth...", { pinId });
         startPolling(pinId, popup);
       } else {
         // Mobile fallback: popup was blocked, redirect current window.
         // Store pinId so we can resume polling when user returns.
         sessionStorage.setItem(STORAGE_KEY, pinId);
-        console.log("[shelflife] Popup blocked, redirecting to Plex auth...", { pinId });
+        console.info("[shelflife] Popup blocked, redirecting to Plex auth...", { pinId });
         const returnUrl = window.location.origin + window.location.pathname;
         window.location.href = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
       }

@@ -11,7 +11,7 @@ export function proxy(request: NextRequest) {
 
   // Allow public paths
   if (PUBLIC_PATHS.some((p) => pathname === p)) {
-    if (isDebug) console.log(`[DEBUG:middleware] ALLOW public path: ${pathname}`);
+    if (isDebug) console.info(`[DEBUG:middleware] ALLOW public path: ${pathname}`);
     return NextResponse.next();
   }
 
@@ -27,14 +27,14 @@ export function proxy(request: NextRequest) {
   // Check for session cookie (JWT validation happens in the route handlers)
   const session = request.cookies.get("shelflife-session");
   if (!session?.value) {
-    if (isDebug) console.log(`[DEBUG:middleware] BLOCK no session: ${pathname}`);
+    if (isDebug) console.info(`[DEBUG:middleware] BLOCK no session: ${pathname}`);
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (isDebug) console.log(`[DEBUG:middleware] ALLOW authenticated: ${pathname}`);
+  if (isDebug) console.info(`[DEBUG:middleware] ALLOW authenticated: ${pathname}`);
   return NextResponse.next();
 }
 

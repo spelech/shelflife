@@ -150,7 +150,7 @@ export function createTestDb() {
 }
 
 export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
-  const sqlite = (db as any).session.client as Database.Database;
+  const sqlite = (db as unknown as { $client: Database.Database }).$client;
 
   // Users
   sqlite.exec(`
@@ -162,14 +162,14 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
 
   // Media items - mix of types, statuses, and owners
   sqlite.exec(`
-    INSERT INTO media_items (id, overseerr_id, tmdb_id, media_type, title, status, requested_by_plex_id, rating_key, requested_at, season_count) VALUES
-      (1, 100, 1000, 'movie', 'Test Movie 1', 'available', 'plex-user-1', 'rk-1', '2024-01-01', NULL),
-      (2, 101, 1001, 'movie', 'Test Movie 2', 'available', 'plex-user-1', 'rk-2', '2024-01-02', NULL),
-      (3, 102, 1002, 'tv', 'Test Show 1', 'available', 'plex-user-1', 'rk-3', '2024-01-03', 5),
-      (4, 103, 1003, 'tv', 'Test Show 2', 'pending', 'plex-user-1', NULL, '2024-01-04', 1),
-      (5, 104, 1004, 'movie', 'Other Movie', 'available', 'plex-user-2', 'rk-5', '2024-01-05', NULL),
-      (6, 105, 1005, 'movie', 'Another Movie', 'processing', 'plex-user-1', 'rk-6', '2024-01-06', NULL),
-      (7, 106, 1006, 'tv', 'Big Brother', 'available', 'plex-user-1', 'rk-7', '2024-01-07', 8);
+    INSERT INTO media_items (id, overseerr_id, tmdb_id, media_type, title, status, requested_by_plex_id, rating_key, requested_at, season_count, in_overseerr) VALUES
+      (1, 100, 1000, 'movie', 'Test Movie 1', 'available', 'plex-user-1', 'rk-1', '2024-01-01', NULL, 1),
+      (2, 101, 1001, 'movie', 'Test Movie 2', 'available', 'plex-user-1', 'rk-2', '2024-01-02', NULL, 1),
+      (3, 102, 1002, 'tv', 'Test Show 1', 'available', 'plex-user-1', 'rk-3', '2024-01-03', 5, 1),
+      (4, 103, 1003, 'tv', 'Test Show 2', 'pending', 'plex-user-1', NULL, '2024-01-04', 1, 1),
+      (5, 104, 1004, 'movie', 'Other Movie', 'available', 'plex-user-2', 'rk-5', '2024-01-05', NULL, 1),
+      (6, 105, 1005, 'movie', 'Another Movie', 'processing', 'plex-user-1', 'rk-6', '2024-01-06', NULL, 1),
+      (7, 106, 1006, 'tv', 'Big Brother', 'available', 'plex-user-1', 'rk-7', '2024-01-07', 8, 1);
   `);
 
   // Votes

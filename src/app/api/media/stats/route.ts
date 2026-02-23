@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const query = statsQuerySchema.parse(params);
 
-    const stats = await computeMediaStats(session.plexId, query.scope);
+    const stats = await computeMediaStats(session.plexId, query.source);
 
     return NextResponse.json(stats);
   } catch (error) {

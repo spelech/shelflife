@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestDb, seedTestData } from "@/test/helpers/db";
-import { createRequest } from "@/test/helpers/request";
+import { createTestDb, seedTestData } from "../../../../../test/helpers/db";
+import { createRequest } from "../../../../../test/helpers/request";
 import { NextResponse } from "next/server";
 
 const mockRequireAuth = vi.fn();
@@ -47,7 +47,7 @@ const userSession = { userId: 1, plexId: "plex-user-1", username: "testuser", is
 const otherSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", isAdmin: false };
 
 describe("GET /api/media/stats", () => {
-  it("defaults to personal scope stats", async () => {
+  it("defaults to personal source stats", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/media/stats");
     const res = await GET(req);
@@ -61,9 +61,9 @@ describe("GET /api/media/stats", () => {
     expect(data.watched).toBe(1);
   });
 
-  it("returns all-scope stats when scope=all", async () => {
+  it("returns all-scope stats when source=all_requests", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media/stats?scope=all");
+    const req = createRequest("http://localhost:3000/api/media/stats?source=all_requests");
     const res = await GET(req);
     const data = await res.json();
 
@@ -75,23 +75,23 @@ describe("GET /api/media/stats", () => {
     expect(data.watched).toBe(1);
   });
 
-  it("returns correct stats for a different user (personal)", async () => {
+  it("returns correct stats for a different user (source=personal)", async () => {
     mockRequireAuth.mockResolvedValue(otherSession);
-    const req = createRequest("http://localhost:3000/api/media/stats?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media/stats?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    // plex-user-2 has 1 item (id 5), nominated it, watched it
+    // plex-user-2 has 1 item (id 5), they voted delete on it, and watched it
     expect(data.total).toBe(1);
     expect(data.nominated).toBe(1);
     expect(data.notNominated).toBe(0);
     expect(data.watched).toBe(1);
   });
 
-  it("returns correct stats for a different user (all)", async () => {
+  it("returns correct stats for a different user (source=all)", async () => {
     mockRequireAuth.mockResolvedValue(otherSession);
-    const req = createRequest("http://localhost:3000/api/media/stats?scope=all");
+    const req = createRequest("http://localhost:3000/api/media/stats?source=all_requests");
     const res = await GET(req);
     const data = await res.json();
 
@@ -106,10 +106,9 @@ describe("GET /api/media/stats", () => {
   it("excludes removed items from stats", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     // Mark an item as removed
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+    testDb.sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
 
-    const req = createRequest("http://localhost:3000/api/media/stats?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media/stats?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 
@@ -120,7 +119,7 @@ describe("GET /api/media/stats", () => {
   it("returns zeroes for a user with no items", async () => {
     const emptySession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
     mockRequireAuth.mockResolvedValue(emptySession);
-    const req = createRequest("http://localhost:3000/api/media/stats?scope=personal");
+    const req = createRequest("http://localhost:3000/api/media/stats?source=my_requests");
     const res = await GET(req);
     const data = await res.json();
 

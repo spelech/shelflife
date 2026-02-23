@@ -46,12 +46,52 @@ beforeEach(() => {
 
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
+type CommunityItem = {
+  id: number;
+  title: string;
+  mediaType: string;
+  posterPath: string | null;
+  status: string;
+  tmdbId: number | null;
+  imdbId: string | null;
+  requestedByUsername: string;
+  requestedAt: string;
+  seasonCount: number | null;
+  nominationType: "delete" | "trim";
+  keepSeasons: number | null;
+  watchStatus: {
+    watched: boolean;
+    playCount: number;
+    lastWatchedAt: string | null;
+  } | null;
+  tally: {
+    keepCount: number;
+  };
+  voters: {
+    username: string;
+    vote: string;
+    votedAt: string;
+  }[];
+};
+
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+};
+
+type CommunityResponse = {
+  items: CommunityItem[];
+  pagination: Pagination;
+};
+
 describe("GET /api/admin/community", () => {
   it("returns community candidates with tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(res.status).toBe(200);
     expect(data.items.length).toBe(3);
@@ -61,13 +101,14 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.voters).toBeDefined();
-    expect(item2.voters.length).toBe(2);
+    const item2 = data.items.find((i) => i.title === "Test Movie 2");
+    expect(item2).toBeDefined();
+    expect(item2!.voters).toBeDefined();
+    expect(item2!.voters.length).toBe(2);
 
-    const voterNames = item2.voters.map((v: any) => v.username);
+    const voterNames = item2!.voters.map((v) => v.username);
     expect(voterNames).toContain("otheruser");
     expect(voterNames).toContain("adminuser");
   });
@@ -76,30 +117,32 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    const otherVoter = item2.voters.find((v: any) => v.username === "otheruser");
-    expect(otherVoter.vote).toBe("keep");
+    const item2 = data.items.find((i) => i.title === "Test Movie 2");
+    expect(item2).toBeDefined();
+    const otherVoter = item2!.voters.find((v) => v.username === "otheruser");
+    expect(otherVoter!.vote).toBe("keep");
 
-    const adminVoter = item2.voters.find((v: any) => v.username === "adminuser");
-    expect(adminVoter.vote).toBe("keep");
+    const adminVoter = item2!.voters.find((v) => v.username === "adminuser");
+    expect(adminVoter!.vote).toBe("keep");
   });
 
   it("returns correct tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.tally.keepCount).toBe(2);
+    const item2 = data.items.find((i) => i.title === "Test Movie 2");
+    expect(item2).toBeDefined();
+    expect(item2!.tally.keepCount).toBe(2);
   });
 
   it("does not duplicate items when both self and admin nominate", async () => {
     // Item 2 already has plex-user-1 vote=delete (self-nomination)
     // Admin also votes delete
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
     );
@@ -107,15 +150,15 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const item2Entries = data.items.filter((i: any) => i.title === "Test Movie 2");
+    const item2Entries = data.items.filter((i) => i.title === "Test Movie 2");
     expect(item2Entries.length).toBe(1);
   });
 
   it("shows admin-nominated items in admin community list", async () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(
       `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
     );
@@ -123,9 +166,9 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const titles = data.items.map((i: any) => i.title);
+    const titles = data.items.map((i) => i.title);
     expect(titles).toContain("Another Movie");
   });
 
@@ -141,10 +184,10 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community?sort=title_asc");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const titles = data.items.map((i: any) => i.title);
-    const sorted = [...titles].sort((a: string, b: string) => a.localeCompare(b));
+    const titles = data.items.map((i) => i.title);
+    const sorted = [...titles].sort((a, b) => a.localeCompare(b));
     expect(titles).toEqual(sorted);
   });
 
@@ -152,26 +195,26 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community?sort=requested_newest");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const dates = data.items.map((i: any) => i.requestedAt);
+    const dates = data.items.map((i) => i.requestedAt);
     for (let i = 0; i < dates.length - 1; i++) {
       expect(dates[i] >= dates[i + 1]).toBe(true);
     }
   });
 
   it("includes removed items in admin listing with status badge", async () => {
-    const sqlite = (testDb.db as any).session.client;
+    const sqlite = testDb.sqlite;
     sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 2`);
 
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
-    const removedItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    const removedItem = data.items.find((i) => i.title === "Test Movie 2");
     expect(removedItem).toBeDefined();
-    expect(removedItem.status).toBe("removed");
+    expect(removedItem!.status).toBe("removed");
     expect(data.items.length).toBe(3);
     expect(data.pagination.total).toBe(3);
   });
@@ -180,7 +223,7 @@ describe("GET /api/admin/community", () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community?page=1&limit=1");
     const res = await GET(req);
-    const data = await res.json();
+    const data = (await res.json()) as CommunityResponse;
 
     expect(data.items.length).toBe(1);
     expect(data.pagination.total).toBe(3);

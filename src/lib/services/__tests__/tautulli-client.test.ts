@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { getTautulliClient as GetClientType } from "../tautulli";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 describe("TautulliClient", () => {
-  let getTautulliClient: () => any;
+  let getTautulliClient: typeof GetClientType;
 
   beforeEach(async () => {
     mockFetch.mockReset();

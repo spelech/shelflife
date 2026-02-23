@@ -1,8 +1,8 @@
 "use client";
 
 interface UserStatsProps {
-  totalRequests: number;
-  activeRequests?: number;
+  totalItems: number;
+  activeItems?: number;
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
@@ -11,22 +11,22 @@ interface UserStatsProps {
 }
 
 export function UserStats({
-  totalRequests,
-  activeRequests,
+  totalItems,
+  activeItems,
   nominatedCount,
   notNominatedCount,
   watchedCount,
   activeFilter,
   onFilterChange,
 }: UserStatsProps) {
-  const showActive = activeRequests !== undefined && activeRequests !== totalRequests;
+  const showActive = activeItems !== undefined && activeItems !== totalItems;
   const stats = [
     ...(showActive
       ? [
-          { label: "Active Requests", value: activeRequests, color: "text-gray-100", filter: null },
-          { label: "Total Requests", value: totalRequests, color: "text-gray-400", filter: null },
+          { label: "Active Items", value: activeItems, color: "text-gray-100", filter: null },
+          { label: "Total Items", value: totalItems, color: "text-gray-400", filter: null },
         ]
-      : [{ label: "Total Requests", value: totalRequests, color: "text-gray-100", filter: null }]),
+      : [{ label: "Total Items", value: totalItems, color: "text-gray-100", filter: null }]),
     { label: "Nominated", value: nominatedCount, color: "text-red-400", filter: "nominated" },
     { label: "Not Nominated", value: notNominatedCount, color: "text-green-400", filter: "none" },
     { label: "Watched", value: watchedCount, color: "text-purple-400", filter: "watched" },

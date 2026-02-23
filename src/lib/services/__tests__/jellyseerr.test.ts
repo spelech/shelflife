@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mapMediaStatus } from "../jellyseerr";
+import type { getJellyseerrClient as GetClientType } from "../jellyseerr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -23,7 +24,7 @@ describe("mapMediaStatus (jellyseerr)", () => {
 });
 
 describe("JellyseerrClient", () => {
-  let getJellyseerrClient: () => any;
+  let getJellyseerrClient: typeof GetClientType;
 
   beforeEach(async () => {
     vi.resetModules();

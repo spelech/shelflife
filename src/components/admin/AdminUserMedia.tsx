@@ -23,6 +23,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [source, setSource] = useState("my_media");
 
   // Reset page when statsFilter changes
   useEffect(() => {
@@ -35,6 +36,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(pageSize),
+        source: source,
       });
 
       // Apply stats filter override
@@ -57,7 +59,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
     } finally {
       setLoading(false);
     }
-  }, [plexId, page, pageSize, statsFilter]);
+  }, [plexId, page, pageSize, statsFilter, source]);
 
   useEffect(() => {
     fetchItems();
@@ -81,26 +83,43 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
   return (
     <div className="space-y-4">
       {/* Filter */}
-      <div className="flex items-center gap-2">
-        {!statsFilter &&
-          ["all", "nominated", "none"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                filter === f
-                  ? "bg-brand font-medium text-black"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-              }`}
-            >
-              {f === "all" ? "All" : VOTE_LABELS[f] || f}
-            </button>
-          ))}
-        {statsFilter && (
-          <span className="text-brand text-sm">
-            Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
-          </span>
-        )}
+      <div className="flex items-center gap-4">
+        <select
+          value={source}
+          onChange={(e) => {
+            setSource(e.target.value);
+            setPage(1);
+          }}
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200"
+          aria-label="Filter by source"
+        >
+          <option value="my_media">My Activity</option>
+          <option value="my_requests">My Requests</option>
+          <option value="all_requests">All Requests</option>
+          <option value="unrequested">Plex Direct</option>
+          <option value="all_media">Everything</option>
+        </select>
+        <div className="flex items-center gap-2">
+          {!statsFilter &&
+            ["all", "nominated", "none"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  filter === f
+                    ? "bg-brand font-medium text-black"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                {f === "all" ? "All Votes" : VOTE_LABELS[f] || f}
+              </button>
+            ))}
+          {statsFilter && (
+            <span className="text-brand text-sm">
+              Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
+            </span>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -123,6 +142,8 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
               seasonCount={item.seasonCount}
               availableSeasonCount={item.availableSeasonCount}
               inPlex={item.inPlex}
+              inOverseerr={item.inOverseerr}
+              inSonarrRadarr={item.inSonarrRadarr}
               watchStatus={item.watchStatus}
               fileSize={item.fileSize}
             >

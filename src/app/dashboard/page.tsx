@@ -10,7 +10,7 @@ export default async function DashboardPage() {
 
   const { total, nominated, notNominated, watched } = await computeMediaStats(
     session.plexId,
-    "personal"
+    "my_requests"
   );
 
   return (
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       </header>
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <DashboardContent
-          totalRequests={total}
+          totalItems={total}
           nominatedCount={nominated}
           notNominatedCount={notNominated}
           watchedCount={watched}

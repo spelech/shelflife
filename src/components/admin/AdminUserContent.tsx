@@ -6,8 +6,8 @@ import { AdminUserMedia } from "./AdminUserMedia";
 
 interface AdminUserContentProps {
   plexId: string;
-  totalRequests: number;
-  activeRequests: number;
+  totalItems: number;
+  activeItems?: number;
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
@@ -15,8 +15,8 @@ interface AdminUserContentProps {
 
 export function AdminUserContent({
   plexId,
-  totalRequests,
-  activeRequests,
+  totalItems,
+  activeItems,
   nominatedCount,
   notNominatedCount,
   watchedCount,
@@ -26,8 +26,8 @@ export function AdminUserContent({
   return (
     <>
       <UserStats
-        totalRequests={totalRequests}
-        activeRequests={activeRequests}
+        totalItems={totalItems}
+        activeItems={activeItems}
         nominatedCount={nominatedCount}
         notNominatedCount={notNominatedCount}
         watchedCount={watchedCount}

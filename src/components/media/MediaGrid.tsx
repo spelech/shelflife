@@ -11,30 +11,64 @@ interface MediaGridProps {
   initialItems?: MediaItemWithVote[];
   statsFilter?: string | null;
   onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
-  onScopeChange?: (scope: string) => void;
+  source?: string;
+  onSourceChange?: (source: string) => void;
 }
 
 export function MediaGrid({
   initialItems,
   statsFilter,
   onVoteChange,
-  onScopeChange,
+  source = "all_requests",
+  onSourceChange,
 }: MediaGridProps) {
   const [items, setItems] = useState<MediaItemWithVote[]>(initialItems || []);
   const [loading, setLoading] = useState(!initialItems);
   const [page, setPage] = useState(1);
-  const [refreshKey, setRefreshKey] = useState(0);
+
   const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
-    scope: "personal",
     type: "all",
     status: "all",
     vote: "all",
     sort: "requested_newest",
   });
+
+  // Status options that are valid per source
+  const statusOptions: { value: string; label: string }[] =
+    source === "unrequested"
+      ? [
+          { value: "all", label: "All Statuses" },
+          { value: "not_requested", label: "Not Requested" },
+          { value: "removed", label: "Removed" },
+        ]
+      : source === "all_media"
+        ? [
+            { value: "all", label: "All Statuses" },
+            { value: "available", label: "Available" },
+            { value: "pending", label: "Pending" },
+            { value: "processing", label: "Processing" },
+            { value: "partial", label: "Partial" },
+            { value: "not_requested", label: "Not Requested" },
+            { value: "removed", label: "Removed" },
+          ]
+        : [
+            { value: "all", label: "All Statuses" },
+            { value: "available", label: "Available" },
+            { value: "pending", label: "Pending" },
+            { value: "processing", label: "Processing" },
+            { value: "partial", label: "Partial" },
+            { value: "removed", label: "Removed" },
+          ];
+
+  const showVoteFilter = source !== "unrequested";
+
+  // Default sort per source context
+  const defaultSortForSource = (src: string) =>
+    src === "unrequested" || src === "all_media" ? "title_asc" : "requested_newest";
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -59,7 +93,7 @@ export function MediaGrid({
       const params = new URLSearchParams({
         page: String(page),
         limit: String(pageSize),
-        scope: filters.scope,
+        source: source,
         type: filters.type,
         status: filters.status,
         vote: filters.vote,
@@ -91,7 +125,7 @@ export function MediaGrid({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, statsFilter, debouncedSearch, refreshKey]);
+  }, [page, pageSize, filters, statsFilter, debouncedSearch, source]);
 
   useEffect(() => {
     fetchItems();
@@ -101,10 +135,10 @@ export function MediaGrid({
     (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => {
       onVoteChange?.(itemId, oldVote, newVote);
       if (statsFilter) {
-        setRefreshKey((k) => k + 1);
+        fetchItems();
       }
     },
-    [onVoteChange, statsFilter]
+    [onVoteChange, statsFilter, fetchItems]
   );
 
   return (
@@ -112,18 +146,41 @@ export function MediaGrid({
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <select
-          value={filters.scope}
+          value={source}
           onChange={(e) => {
-            const newScope = e.target.value;
-            setFilters((f) => ({ ...f, scope: newScope }));
+            const newSource = e.target.value;
             setPage(1);
-            onScopeChange?.(newScope);
+            // Reset status if the current value isn't valid for the new source
+            const newStatusOptions: string[] =
+              newSource === "unrequested"
+                ? ["all", "not_requested", "removed"]
+                : newSource === "all_media"
+                  ? [
+                      "all",
+                      "available",
+                      "pending",
+                      "processing",
+                      "partial",
+                      "not_requested",
+                      "removed",
+                    ]
+                  : ["all", "available", "pending", "processing", "partial", "removed"];
+            setFilters((f) => ({
+              ...f,
+              status: newStatusOptions.includes(f.status) ? f.status : "all",
+              sort: defaultSortForSource(newSource),
+              vote: "all",
+            }));
+            onSourceChange?.(newSource);
           }}
-          aria-label="Content scope"
+          aria-label="Content source"
           className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
         >
-          <option value="all">All Users</option>
-          <option value="personal">My Requests</option>
+          <option value="all_requests">All Requests</option>
+          <option value="my_requests">My Requests</option>
+          <option value="my_media">My Activity</option>
+          <option value="unrequested">Plex Direct</option>
+          <option value="all_media">Everything</option>
         </select>
         <input
           type="text"
@@ -152,14 +209,13 @@ export function MediaGrid({
           }}
           className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
         >
-          <option value="all">All Statuses</option>
-          <option value="available">Available</option>
-          <option value="pending">Pending</option>
-          <option value="processing">Processing</option>
-          <option value="partial">Partial</option>
-          <option value="removed">Removed</option>
+          {statusOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </select>
-        {!statsFilter && (
+        {!statsFilter && showVoteFilter && (
           <select
             value={filters.vote}
             onChange={(e) => {
@@ -211,7 +267,7 @@ export function MediaGrid({
         <div className="py-12 text-center text-gray-500">
           <p className="text-lg">No media items found</p>
           <p className="mt-1 text-sm">
-            {filters.scope === "personal"
+            {source === "my_requests"
               ? "Your requests will appear here after a sync"
               : "Try adjusting your filters"}
           </p>
