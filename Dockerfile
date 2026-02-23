@@ -36,7 +36,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
-RUN apk add --no-cache su-exec
+RUN apk add --no-cache su-exec dos2unix
 
 # Copy standalone output
 COPY --from=builder /app/public ./public
@@ -52,7 +52,7 @@ RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Copy migration script and entrypoint
 COPY migrate.js /app/migrate.js
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && dos2unix /app/docker-entrypoint.sh
 
 EXPOSE 3000
 
@@ -67,7 +67,7 @@ ENV DATABASE_PATH=/app/data/shelflife.db
 ENV DEBUG=""
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
