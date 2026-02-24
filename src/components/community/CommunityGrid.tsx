@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CommunityCard } from "./CommunityCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
+import { Select } from "../ui/Select";
 import { COMMUNITY_SORT_LABELS } from "@/lib/constants";
 import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
@@ -105,32 +106,29 @@ export function CommunityGrid({
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <select
+        <Select
           value={filters.type}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, type: e.target.value }));
+          options={[
+            { value: "all", label: "All Types" },
+            { value: "movie", label: "Movies" },
+            { value: "tv", label: "TV Shows" },
+          ]}
+          onChange={(val) => {
+            setFilters((f) => ({ ...f, type: val }));
             setPage(1);
           }}
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          <option value="all">All Types</option>
-          <option value="movie">Movies</option>
-          <option value="tv">TV Shows</option>
-        </select>
-        <select
+        />
+        <Select
           value={filters.sort}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, sort: e.target.value }));
+          options={Object.entries(COMMUNITY_SORT_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
+          onChange={(val) => {
+            setFilters((f) => ({ ...f, sort: val }));
             setPage(1);
           }}
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          {Object.entries(COMMUNITY_SORT_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        />
         <label className="flex items-center gap-2 text-sm text-gray-300">
           <input
             type="checkbox"

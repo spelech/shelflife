@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { MediaCard } from "./MediaCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
+import { Select } from "../ui/Select";
 import { VOTE_LABELS, SORT_LABELS } from "@/lib/constants";
 import type { MediaItemWithVote, VoteValue } from "@/types";
 
@@ -175,60 +176,48 @@ export function MediaGrid({
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-48 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500"
         />
-        <select
+        <Select
           value={filters.type}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, type: e.target.value }));
+          options={[
+            { value: "all", label: "All Types" },
+            { value: "movie", label: "Movies" },
+            { value: "tv", label: "TV Shows" },
+          ]}
+          onChange={(val) => {
+            setFilters((f) => ({ ...f, type: val }));
             setPage(1);
           }}
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          <option value="all">All Types</option>
-          <option value="movie">Movies</option>
-          <option value="tv">TV Shows</option>
-        </select>
-        <select
+        />
+        <Select
           value={filters.status}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, status: e.target.value }));
+          options={statusOptions}
+          onChange={(val) => {
+            setFilters((f) => ({ ...f, status: val }));
             setPage(1);
           }}
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        />
         {!statsFilter && showVoteFilter && (
-          <select
+          <Select
             value={filters.vote}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, vote: e.target.value }));
+            options={[
+              { value: "all", label: "All" },
+              { value: "nominated", label: "Nominated" },
+              { value: "none", label: "Not Nominated" },
+            ]}
+            onChange={(val) => {
+              setFilters((f) => ({ ...f, vote: val }));
               setPage(1);
             }}
-            className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-          >
-            <option value="all">All</option>
-            <option value="nominated">Nominated</option>
-            <option value="none">Not Nominated</option>
-          </select>
+          />
         )}
-        <select
+        <Select
           value={filters.sort}
-          onChange={(e) => {
-            setFilters((f) => ({ ...f, sort: e.target.value }));
+          options={Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label }))}
+          onChange={(val) => {
+            setFilters((f) => ({ ...f, sort: val }));
             setPage(1);
           }}
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          {Object.entries(SORT_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        />
         {statsFilter && (
           <span className="text-brand flex items-center text-sm">
             Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
