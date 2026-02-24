@@ -6,6 +6,7 @@ import {
   mediaCountWithJoins,
   mapMediaItemRow,
   buildPagination,
+  getNominationsForItems,
 } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
@@ -80,8 +81,17 @@ export async function GET(request: NextRequest) {
     const totalResult = await mediaCountWithJoins(session.plexId).where(whereClause);
     const total = totalResult[0]?.total || 0;
 
+    // Batch-fetch nominations for all returned items (separate query, no JOIN impact)
+    const itemIds = items.map((i) => i.id);
+    const nominationsMap = await getNominationsForItems(itemIds);
+
+    const mappedItems = items.map((i) => ({
+      ...mapMediaItemRow(i),
+      nominations: nominationsMap.get(i.id) ?? null,
+    }));
+
     return NextResponse.json({
-      items: items.map(mapMediaItemRow),
+      items: mappedItems,
       pagination: buildPagination(query.page, query.limit, total),
     });
   } catch (error) {

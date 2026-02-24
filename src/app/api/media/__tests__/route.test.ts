@@ -10,6 +10,7 @@ interface TestMediaItem {
   status: string;
   vote: string | null;
   watchStatus: { watched: boolean; playCount: number; lastWatchedAt: string } | null;
+  nominations: { count: number; usernames: string[] } | null;
   requestedAt: string;
 }
 
@@ -367,6 +368,68 @@ describe("GET /api/media", () => {
     expect(data.items.every((i: TestMediaItem) => i.vote === "delete" || i.vote === "trim")).toBe(
       true
     );
+  });
+
+  it("includes nominations with nominator usernames for items with votes", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
+    const res = await GET(req);
+    const data = await res.json();
+
+    // Item 2 has a delete vote from plex-user-1 (testuser)
+    const item2 = data.items.find((i: TestMediaItem) => i.id === 2);
+    expect(item2.nominations).toEqual({
+      count: 1,
+      usernames: ["testuser"],
+      voters: [{ username: "testuser", vote: "delete", keepSeasons: null }],
+    });
+
+    // Item 7 has a trim vote from plex-user-1 (testuser), keepSeasons=1
+    const item7 = data.items.find((i: TestMediaItem) => i.id === 7);
+    expect(item7.nominations).toEqual({
+      count: 1,
+      usernames: ["testuser"],
+      voters: [{ username: "testuser", vote: "trim", keepSeasons: 1 }],
+    });
+  });
+
+  it("returns null nominations for items without any votes", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
+    const res = await GET(req);
+    const data = await res.json();
+
+    // Item 1 has no votes
+    const item1 = data.items.find((i: TestMediaItem) => i.id === 1);
+    expect(item1.nominations).toBeNull();
+  });
+
+  it("shows multiple nominators when multiple users vote on the same item", async () => {
+    // Add an admin vote on item 2 (already has testuser's vote)
+    testDb.sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?source=my_requests");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const item2 = data.items.find((i: TestMediaItem) => i.id === 2);
+    expect(item2.nominations.count).toBe(2);
+    expect(item2.nominations.usernames).toContain("testuser");
+    expect(item2.nominations.usernames).toContain("adminuser");
+    expect(item2.nominations.voters).toHaveLength(2);
+    expect(item2.nominations.voters).toContainEqual({
+      username: "testuser",
+      vote: "delete",
+      keepSeasons: null,
+    });
+    expect(item2.nominations.voters).toContainEqual({
+      username: "adminuser",
+      vote: "delete",
+      keepSeasons: null,
+    });
   });
 
   it("returns 401 when not authenticated", async () => {

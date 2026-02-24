@@ -82,12 +82,25 @@ export interface WatchStatusSummary {
   lastWatchedAt: string | null;
 }
 
+export interface NominationVoter {
+  username: string;
+  vote: "delete" | "trim";
+  keepSeasons: number | null;
+}
+
+export interface NominationSummary {
+  count: number;
+  usernames: string[];
+  voters: NominationVoter[];
+}
+
 export interface MediaItemWithVote extends MediaItem {
   vote: VoteValue | null;
   keepSeasons: number | null;
   adminVote?: VoteValue | null;
   adminKeepSeasons?: number | null;
   watchStatus: WatchStatusSummary | null;
+  nominations: NominationSummary | null;
 }
 
 export interface ReviewCompletionSummary {

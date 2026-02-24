@@ -117,6 +117,65 @@ export function mapMediaItemRow(i: MediaItemRow) {
   };
 }
 
+export interface NominationVoter {
+  username: string;
+  vote: "delete" | "trim";
+  keepSeasons: number | null;
+}
+
+export interface NominationInfo {
+  count: number;
+  usernames: string[];
+  voters: NominationVoter[];
+}
+
+/**
+ * Batch-fetch nomination data for a set of media item IDs.
+ * Returns a Map of mediaItemId → { count, usernames[], voters[] }.
+ * Runs a single separate query — no JOINs added to the main media query.
+ */
+export async function getNominationsForItems(
+  mediaItemIds: number[]
+): Promise<Map<number, NominationInfo>> {
+  const result = new Map<number, NominationInfo>();
+  if (mediaItemIds.length === 0) return result;
+
+  const rows = await db
+    .select({
+      mediaItemId: userVotes.mediaItemId,
+      username: users.username,
+      vote: userVotes.vote,
+      keepSeasons: userVotes.keepSeasons,
+    })
+    .from(userVotes)
+    .innerJoin(users, eq(users.plexId, userVotes.userPlexId))
+    .where(
+      and(inArray(userVotes.mediaItemId, mediaItemIds), inArray(userVotes.vote, ["delete", "trim"]))
+    );
+
+  for (const row of rows) {
+    const existing = result.get(row.mediaItemId);
+    const voter: NominationVoter = {
+      username: row.username,
+      vote: row.vote as "delete" | "trim",
+      keepSeasons: row.keepSeasons,
+    };
+    if (existing) {
+      existing.count++;
+      existing.usernames.push(row.username);
+      existing.voters.push(voter);
+    } else {
+      result.set(row.mediaItemId, {
+        count: 1,
+        usernames: [row.username],
+        voters: [voter],
+      });
+    }
+  }
+
+  return result;
+}
+
 /**
  * Shared condition for community nomination queries.
  * An item is nominated if someone voted delete/trim AND

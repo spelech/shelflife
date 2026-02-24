@@ -7,7 +7,7 @@ import { ClickablePoster } from "./ClickablePoster";
 import { MediaDetailModal } from "./MediaDetailModal";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
-import type { MediaStatus, MediaType, WatchStatusSummary } from "@/types";
+import type { MediaStatus, MediaType, NominationSummary, WatchStatusSummary } from "@/types";
 
 const STATUS_LABELS: Partial<Record<MediaStatus, string>> = {
   available: "Available",
@@ -44,6 +44,8 @@ interface BaseMediaCardProps {
 
   fileSize?: number | null;
 
+  nominations?: NominationSummary | null;
+
   requestedByUsername?: string;
 
   showLastWatched?: boolean;
@@ -69,6 +71,7 @@ export function BaseMediaCard({
   keepSeasons,
   watchStatus,
   fileSize,
+  nominations,
   requestedByUsername,
   showLastWatched,
   children,
@@ -138,6 +141,14 @@ export function BaseMediaCard({
             {fileSize ? <span>{formatFileSize(fileSize)}</span> : null}
           </div>
         ) : null}
+        {nominations && nominations.count > 0 && (
+          <p
+            className="truncate text-xs text-red-400"
+            title={`Nominated by: ${nominations.usernames.join(", ")}`}
+          >
+            Nominated by: {nominations.usernames.join(", ")}
+          </p>
+        )}
         <ExternalLinks imdbId={imdbId} tmdbId={tmdbId} mediaType={mediaType} />
         {children}
       </div>
@@ -150,6 +161,7 @@ export function BaseMediaCard({
           seasonCount={seasonCount}
           availableSeasonCount={availableSeasonCount}
           requestedByUsername={requestedByUsername}
+          nominations={nominations}
           playCount={watchStatus?.playCount}
           fileSize={fileSize}
           tmdbId={tmdbId}

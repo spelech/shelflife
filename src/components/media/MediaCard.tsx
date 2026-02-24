@@ -29,6 +29,7 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
       keepSeasons={item.vote === "trim" ? item.keepSeasons : null}
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}
+      nominations={item.nominations}
     >
       <VoteButton
         mediaItemId={item.id}
