@@ -9,6 +9,7 @@ interface VoteButtonProps {
   seasonCount?: number | null;
   mediaType?: "movie" | "tv";
   currentKeepSeasons?: number | null;
+  currentComment?: string | null;
   onVoteChange?: (newVote: VoteValue | null, oldVote: VoteValue | null) => void;
 }
 
@@ -18,12 +19,15 @@ export function VoteButton({
   seasonCount,
   mediaType,
   currentKeepSeasons,
+  currentComment,
   onVoteChange,
 }: VoteButtonProps) {
   const [vote, setVote] = useState<VoteValue | null>(currentVote);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keepSeasons, setKeepSeasons] = useState<number>(currentKeepSeasons || 1);
+  const [comment, setComment] = useState<string>(currentComment || "");
+  const [isEditingComment, setIsEditingComment] = useState(false);
   const [showTrimSelector, setShowTrimSelector] = useState(false);
 
   useEffect(() => {
@@ -35,6 +39,12 @@ export function VoteButton({
       setKeepSeasons(currentKeepSeasons);
     }
   }, [currentKeepSeasons]);
+
+  useEffect(() => {
+    if (currentComment !== undefined) {
+      setComment(currentComment || "");
+    }
+  }, [currentComment]);
 
   const canTrim = mediaType === "tv" && seasonCount && seasonCount > 1;
   const isNominated = vote === "delete" || vote === "trim";
@@ -51,6 +61,8 @@ export function VoteButton({
         if (res.ok) {
           const oldVote = vote;
           setVote(null);
+          setComment("");
+          setIsEditingComment(false);
           setShowTrimSelector(false);
           onVoteChange?.(null, oldVote);
         } else {
@@ -71,7 +83,7 @@ export function VoteButton({
         const res = await fetch(`/api/media/${mediaItemId}/vote`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vote: "delete" }),
+          body: JSON.stringify({ vote: "delete", comment: comment || undefined }),
         });
         if (res.ok) {
           const oldVote = vote;
@@ -97,7 +109,7 @@ export function VoteButton({
       const res = await fetch(`/api/media/${mediaItemId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vote: "trim", keepSeasons: seasons }),
+        body: JSON.stringify({ vote: "trim", keepSeasons: seasons, comment: comment || undefined }),
       });
       if (res.ok) {
         const oldVote = vote;
@@ -111,6 +123,36 @@ export function VoteButton({
       }
     } catch (err) {
       console.error("Failed to set trim:", err);
+      setError("Failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveComment = async () => {
+    if (!vote) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const payload: { vote: VoteValue; comment?: string; keepSeasons?: number } = {
+        vote,
+        comment: comment || undefined,
+      };
+      if (vote === "trim") payload.keepSeasons = keepSeasons;
+
+      const res = await fetch(`/api/media/${mediaItemId}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setIsEditingComment(false);
+      } else {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || "Failed to save comment.");
+      }
+    } catch (err) {
+      console.error("Failed to save comment:", err);
       setError("Failed. Try again.");
     } finally {
       setLoading(false);
@@ -170,6 +212,61 @@ export function VoteButton({
             </div>
           )}
         </>
+      )}
+
+      {isNominated && (
+        <div className="mt-2 border-t border-gray-800 pt-2 text-sm">
+          {isEditingComment ? (
+            <div className="space-y-2">
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add an optional comment..."
+                className="w-full resize-none rounded border border-gray-600 bg-gray-900 p-2 text-gray-200 placeholder-gray-500 focus:border-amber-500 focus:outline-none"
+                rows={2}
+                maxLength={500}
+                disabled={loading}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setComment(currentComment || "");
+                    setIsEditingComment(false);
+                  }}
+                  disabled={loading}
+                  className="rounded px-2 py-1 text-xs text-gray-400 hover:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveComment}
+                  disabled={loading}
+                  className="rounded bg-gray-700 px-3 py-1 text-xs font-medium text-white hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Save Comment
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between gap-2 rounded bg-gray-800/50 p-2">
+              <p className="text-xs text-gray-400">
+                {comment ? (
+                  <span className="leading-relaxed break-words whitespace-pre-wrap text-gray-300">
+                    {comment}
+                  </span>
+                ) : (
+                  <span className="text-gray-500 italic">No comment provided</span>
+                )}
+              </p>
+              <button
+                onClick={() => setIsEditingComment(true)}
+                className="shrink-0 text-xs text-amber-400 hover:text-amber-300"
+              >
+                {comment ? "Edit" : "Add comment"}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

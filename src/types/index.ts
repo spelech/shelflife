@@ -86,6 +86,7 @@ export interface NominationVoter {
   username: string;
   vote: "delete" | "trim";
   keepSeasons: number | null;
+  comment: string | null;
 }
 
 export interface NominationSummary {
@@ -97,6 +98,7 @@ export interface NominationSummary {
 export interface MediaItemWithVote extends MediaItem {
   vote: VoteValue | null;
   keepSeasons: number | null;
+  comment: string | null;
   adminVote?: VoteValue | null;
   adminKeepSeasons?: number | null;
   watchStatus: WatchStatusSummary | null;
@@ -136,8 +138,12 @@ export interface CommunityCandidate {
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   watchStatus: WatchStatusSummary | null;
-  tally: { keepCount: number };
+  tally: {
+    keepCount: number;
+  };
   currentUserVote: CommunityVoteValue | null;
   isRequestor: boolean;
   isNominator: boolean;
+  currentUserNominationComment: string | null;
+  nominations: NominationSummary | null;
 }

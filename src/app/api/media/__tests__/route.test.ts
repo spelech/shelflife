@@ -381,7 +381,7 @@ describe("GET /api/media", () => {
     expect(item2.nominations).toEqual({
       count: 1,
       usernames: ["testuser"],
-      voters: [{ username: "testuser", vote: "delete", keepSeasons: null }],
+      voters: [{ username: "testuser", vote: "delete", keepSeasons: null, comment: null }],
     });
 
     // Item 7 has a trim vote from plex-user-1 (testuser), keepSeasons=1
@@ -389,7 +389,7 @@ describe("GET /api/media", () => {
     expect(item7.nominations).toEqual({
       count: 1,
       usernames: ["testuser"],
-      voters: [{ username: "testuser", vote: "trim", keepSeasons: 1 }],
+      voters: [{ username: "testuser", vote: "trim", keepSeasons: 1, comment: null }],
     });
   });
 
@@ -424,11 +424,13 @@ describe("GET /api/media", () => {
       username: "testuser",
       vote: "delete",
       keepSeasons: null,
+      comment: null,
     });
     expect(item2.nominations.voters).toContainEqual({
       username: "adminuser",
       vote: "delete",
       keepSeasons: null,
+      comment: null,
     });
   });
 

@@ -6,6 +6,7 @@ export const voteSchema = z
   .object({
     vote: z.enum(["delete", "trim"]),
     keepSeasons: z.coerce.number().int().positive().optional(),
+    comment: z.string().max(500).optional(),
   })
   .refine((data) => data.vote !== "trim" || data.keepSeasons !== undefined, {
     message: "keepSeasons is required when vote is 'trim'",

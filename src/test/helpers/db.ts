@@ -61,6 +61,7 @@ export function createTestDb() {
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
       vote TEXT NOT NULL CHECK(vote IN ('delete', 'trim')),
       keep_seasons INTEGER,
+      comment TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );

@@ -1,0 +1,1 @@
+ALTER TABLE `user_votes` ADD `comment` text;

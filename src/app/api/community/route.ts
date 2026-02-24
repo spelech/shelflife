@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityQuerySchema } from "@/lib/validators/schemas";
-import { buildPagination, getNominationCondition } from "@/lib/db/queries";
+import { buildPagination, getNominationCondition, getNominationsForItems } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, isNull, desc } from "drizzle-orm";
@@ -96,6 +96,12 @@ export async function GET(request: NextRequest) {
         "is_nominator"
       );
 
+    const currentUserNominationComment = sql<
+      string | null
+    >`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN ${userVotes.comment} END)`.as(
+      "current_user_nomination_comment"
+    );
+
     let baseQuery = db
       .select({
         id: mediaItems.id,
@@ -124,6 +130,7 @@ export async function GET(request: NextRequest) {
         selfVoteUpdatedAt: sql<string>`MAX(${userVotes.updatedAt})`.as("self_vote_updated_at"),
         requestedByPlexId: mediaItems.requestedByPlexId,
         isNominator,
+        currentUserNominationComment,
       })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition!)
@@ -171,6 +178,10 @@ export async function GET(request: NextRequest) {
     // GROUP BY to deduplicate when both self + admin nominate the same item
     const items = await baseQuery.groupBy(mediaItems.id).limit(query.limit).offset(offset);
 
+    // Fetch nominations for these items
+    const itemIds = items.map((i) => i.id);
+    const nominationsMap = await getNominationsForItems(itemIds);
+
     // Count query — separate paths to keep Drizzle types clean
     const total = await getCandidateCount(db, baseCondition!, query, session.plexId);
 
@@ -208,6 +219,8 @@ export async function GET(request: NextRequest) {
         currentUserVote: i.currentUserVote || null,
         isRequestor: i.requestedByPlexId === session.plexId,
         isNominator: !!i.isNominator,
+        currentUserNominationComment: i.currentUserNominationComment || null,
+        nominations: nominationsMap.get(i.id) ?? null,
       })),
       pagination: buildPagination(query.page, query.limit, total),
     });

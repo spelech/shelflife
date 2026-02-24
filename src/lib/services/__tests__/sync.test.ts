@@ -77,8 +77,10 @@ vi.mock("../sync-logger", () => ({
 }));
 
 const mockIsPlexSyncEnabled = vi.fn();
+const mockGetSelectedLibraries = vi.fn();
 vi.mock("../settings", () => ({
   isPlexSyncEnabled: () => mockIsPlexSyncEnabled(),
+  getSelectedLibraries: () => mockGetSelectedLibraries(),
 }));
 
 const { runFullSync, syncLayer1Plex, syncLayer3Overseerr } = await import("../sync");
@@ -89,6 +91,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockGetLibraries.mockResolvedValue([]);
+  mockGetSelectedLibraries.mockResolvedValue([]);
   mockGetLibraryMediaInfo.mockResolvedValue([]);
   mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://localhost:32400" });
   mockGetAllSeries.mockResolvedValue([]);

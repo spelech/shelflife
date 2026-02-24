@@ -26,6 +26,7 @@ const mediaItemColumns = {
   inPlex: mediaItems.inPlex,
   vote: userVotes.vote,
   keepSeasons: userVotes.keepSeasons,
+  comment: userVotes.comment,
   watched: watchStatus.watched,
   playCount: watchStatus.playCount,
   lastWatchedAt: watchStatus.lastWatchedAt,
@@ -83,6 +84,7 @@ export interface MediaItemRow {
   inPlex: boolean;
   vote: "delete" | "trim" | null;
   keepSeasons: number | null;
+  comment: string | null;
   watched: boolean | null;
   playCount: number | null;
   lastWatchedAt: string | null;
@@ -106,6 +108,7 @@ export function mapMediaItemRow(i: MediaItemRow) {
     inPlex: i.inPlex,
     vote: i.vote || null,
     keepSeasons: i.keepSeasons || null,
+    comment: i.comment || null,
     watchStatus:
       i.watched !== null
         ? {
@@ -121,6 +124,7 @@ export interface NominationVoter {
   username: string;
   vote: "delete" | "trim";
   keepSeasons: number | null;
+  comment: string | null;
 }
 
 export interface NominationInfo {
@@ -146,6 +150,7 @@ export async function getNominationsForItems(
       username: users.username,
       vote: userVotes.vote,
       keepSeasons: userVotes.keepSeasons,
+      comment: userVotes.comment,
     })
     .from(userVotes)
     .innerJoin(users, eq(users.plexId, userVotes.userPlexId))
@@ -159,6 +164,7 @@ export async function getNominationsForItems(
       username: row.username,
       vote: row.vote as "delete" | "trim",
       keepSeasons: row.keepSeasons,
+      comment: row.comment,
     };
     if (existing) {
       existing.count++;

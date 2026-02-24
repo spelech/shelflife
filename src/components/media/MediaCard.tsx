@@ -37,6 +37,7 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
         seasonCount={item.seasonCount}
         mediaType={item.mediaType}
         currentKeepSeasons={item.keepSeasons}
+        currentComment={item.comment}
         onVoteChange={(newVote: VoteValue | null, oldVote: VoteValue | null) =>
           onVoteChange?.(item.id, oldVote, newVote)
         }

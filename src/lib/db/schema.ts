@@ -90,6 +90,7 @@ export const userVotes = sqliteTable(
       .notNull(),
     vote: text("vote", { enum: ["delete", "trim"] }).notNull(),
     keepSeasons: integer("keep_seasons"),
+    comment: text("comment"),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
       .notNull(),

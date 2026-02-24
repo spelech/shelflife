@@ -246,12 +246,19 @@ export function MediaDetailModal({
                     <span className="text-gray-400">Votes</span>
                   </div>
                   {nominations.voters.map((v) => (
-                    <p key={v.username} className="pl-6 text-gray-400">
-                      <span className="text-gray-200">{v.username}</span>{" "}
-                      {v.vote === "trim" && v.keepSeasons
-                        ? `voted to trim — keep ${v.keepSeasons} season${v.keepSeasons !== 1 ? "s" : ""}`
-                        : "voted to delete"}
-                    </p>
+                    <div key={v.username} className="pb-2 pl-6 last:pb-0">
+                      <p className="text-gray-400">
+                        <span className="text-gray-200">{v.username}</span>{" "}
+                        {v.vote === "trim" && v.keepSeasons
+                          ? `voted to trim — keep ${v.keepSeasons} season${v.keepSeasons !== 1 ? "s" : ""}`
+                          : "voted to delete"}
+                      </p>
+                      {v.comment && (
+                        <p className="mt-1 ml-1 border-l-2 border-gray-700 pl-2 text-xs leading-relaxed break-words whitespace-pre-wrap text-gray-500 italic">
+                          &quot;{v.comment}&quot;
+                        </p>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

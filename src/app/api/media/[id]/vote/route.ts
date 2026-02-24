@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json();
     const parsed = voteSchema.parse(body);
-    const { vote } = parsed;
+    const { vote, comment = null } = parsed;
     const keepSeasons = vote === "trim" ? (parsed.keepSeasons ?? null) : null;
 
     // Verify the media item exists (admins can vote on any item; non-admins only their own)
@@ -63,12 +63,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userPlexId: session.plexId,
         vote,
         keepSeasons,
+        comment,
       })
       .onConflictDoUpdate({
         target: [userVotes.mediaItemId, userVotes.userPlexId],
         set: {
           vote,
           keepSeasons,
+          comment,
           updatedAt: new Date().toISOString(),
         },
       });

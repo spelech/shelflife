@@ -31,6 +31,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}
       requestedByUsername={item.requestedByUsername}
+      nominations={item.nominations}
       showLastWatched
     >
       {item.status === "removed" ? (
@@ -49,6 +50,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
                 seasonCount={item.seasonCount}
                 mediaType={item.mediaType}
                 currentKeepSeasons={item.keepSeasons}
+                currentComment={item.currentUserNominationComment}
                 onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
               />
             </div>
