@@ -8,10 +8,16 @@ export default async function DashboardPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
-  const { total, nominated, notNominated, watched } = await computeMediaStats(
-    session.plexId,
-    "my_requests"
-  );
+  const {
+    total,
+    nominated,
+    notNominated,
+    watched,
+    movieCount,
+    tvCount,
+    totalFileSize,
+    inPlexCount,
+  } = await computeMediaStats(session.plexId, "my_requests");
 
   return (
     <div className="min-h-screen">
@@ -46,6 +52,10 @@ export default async function DashboardPage() {
           nominatedCount={nominated}
           notNominatedCount={notNominated}
           watchedCount={watched}
+          movieCount={movieCount}
+          tvCount={tvCount}
+          totalFileSize={totalFileSize}
+          inPlexCount={inPlexCount}
         />
       </main>
     </div>

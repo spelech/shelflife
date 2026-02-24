@@ -30,7 +30,7 @@ export function createTestDb() {
       media_type TEXT NOT NULL CHECK(media_type IN ('movie', 'tv')),
       title TEXT NOT NULL,
       poster_path TEXT,
-      status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN ('unknown', 'pending', 'processing', 'partial', 'available', 'removed')),
+      status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN ('unknown', 'pending', 'processing', 'partial', 'available', 'removed', 'not_requested')),
       requested_by_plex_id TEXT REFERENCES users(plex_id),
       requested_at TEXT,
       rating_key TEXT UNIQUE,

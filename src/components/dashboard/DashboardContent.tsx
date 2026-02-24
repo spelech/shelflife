@@ -11,6 +11,10 @@ interface DashboardContentProps {
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
+  movieCount: number;
+  tvCount: number;
+  totalFileSize: number;
+  inPlexCount: number;
 }
 
 export function DashboardContent({
@@ -18,6 +22,10 @@ export function DashboardContent({
   nominatedCount: initialNominated,
   notNominatedCount: initialNotNominated,
   watchedCount: initialWatched,
+  movieCount: initialMovieCount,
+  tvCount: initialTvCount,
+  totalFileSize: initialTotalFileSize,
+  inPlexCount: initialInPlexCount,
 }: DashboardContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
   const [source, setSource] = useState("my_requests");
@@ -26,6 +34,10 @@ export function DashboardContent({
     nominated: initialNominated,
     notNominated: initialNotNominated,
     watched: initialWatched,
+    movieCount: initialMovieCount,
+    tvCount: initialTvCount,
+    totalFileSize: initialTotalFileSize,
+    inPlexCount: initialInPlexCount,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -50,6 +62,10 @@ export function DashboardContent({
             nominated: data.nominated,
             notNominated: data.notNominated,
             watched: data.watched,
+            movieCount: data.movieCount,
+            tvCount: data.tvCount,
+            totalFileSize: data.totalFileSize,
+            inPlexCount: data.inPlexCount,
           });
         }
       }
@@ -97,6 +113,10 @@ export function DashboardContent({
         nominatedCount={stats.nominated}
         notNominatedCount={stats.notNominated}
         watchedCount={stats.watched}
+        movieCount={stats.movieCount}
+        tvCount={stats.tvCount}
+        totalFileSize={stats.totalFileSize}
+        inPlexCount={stats.inPlexCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />

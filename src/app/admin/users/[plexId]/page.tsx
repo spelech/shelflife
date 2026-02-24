@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { users, mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count, countDistinct, inArray, ne } from "drizzle-orm";
+import { eq, and, count, countDistinct, inArray, ne, sql } from "drizzle-orm";
 import { AdminUserContent } from "@/components/admin/AdminUserContent";
 
 export default async function AdminUserPage({ params }: { params: Promise<{ plexId: string }> }) {
@@ -16,9 +16,22 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
 
   if (!user) notFound();
 
-  // Get stats
+  // Get stats — single query for totals and type/size breakdown
   const [totalResult] = await db
-    .select({ total: count() })
+    .select({
+      total: count(),
+      movieCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.mediaType} = 'movie' THEN 1 ELSE 0 END)`.as(
+          "movie_count"
+        ),
+      tvCount: sql<number>`SUM(CASE WHEN ${mediaItems.mediaType} = 'tv' THEN 1 ELSE 0 END)`.as(
+        "tv_count"
+      ),
+      totalFileSize: sql<number>`COALESCE(SUM(${mediaItems.fileSize}), 0)`.as("total_file_size"),
+      inPlexCount: sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 1 THEN 1 ELSE 0 END)`.as(
+        "in_plex_count"
+      ),
+    })
     .from(mediaItems)
     .where(eq(mediaItems.requestedByPlexId, plexId));
 
@@ -89,6 +102,10 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
           nominatedCount={nominatedCount}
           notNominatedCount={notNominatedCount}
           watchedCount={watchedCount}
+          movieCount={totalResult?.movieCount || 0}
+          tvCount={totalResult?.tvCount || 0}
+          totalFileSize={totalResult?.totalFileSize || 0}
+          inPlexCount={totalResult?.inPlexCount || 0}
         />
       </main>
     </div>

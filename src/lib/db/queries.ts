@@ -139,6 +139,11 @@ export function getNominationCondition() {
 /**
  * Shared stats computation used by both the stats API endpoint
  * and the dashboard page server-side rendering.
+ *
+ * Status exclusion rules are aligned with the media API route:
+ * - my_requests / all_requests / my_media: exclude 'removed' and 'not_requested'
+ * - unrequested: no status exclusions (items are typically 'not_requested')
+ * - all_media: exclude only 'removed' (matches grid's default status=all behavior)
  */
 export async function computeMediaStats(plexId: string, source: string) {
   const conditions: SQL[] = [];
@@ -154,18 +159,45 @@ export async function computeMediaStats(plexId: string, source: string) {
     conditions.push(and(eq(mediaItems.inPlex, true), eq(mediaItems.inOverseerr, false))!);
   }
 
-  const baseCondition = conditions.length > 0 ? and(...conditions) : undefined;
+  // Status exclusions aligned with the media API route per source
+  const statusExclusions: SQL[] = [];
+  if (source === "unrequested") {
+    // No status exclusions — unrequested items are typically 'not_requested'
+  } else if (source === "all_media") {
+    // Only exclude removed (matches grid's default status=all)
+    statusExclusions.push(ne(mediaItems.status, "removed"));
+  } else {
+    // Request-based sources: exclude both removed and not_requested
+    statusExclusions.push(ne(mediaItems.status, "removed"));
+    statusExclusions.push(ne(mediaItems.status, "not_requested"));
+  }
+
+  const baseCondition =
+    [...conditions, ...statusExclusions].length > 0
+      ? and(...conditions, ...statusExclusions)
+      : undefined;
 
   const [totalResult] = await db
-    .select({ total: count() })
+    .select({
+      total: count(),
+      movieCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.mediaType} = 'movie' THEN 1 ELSE 0 END)`.as(
+          "movie_count"
+        ),
+      tvCount: sql<number>`SUM(CASE WHEN ${mediaItems.mediaType} = 'tv' THEN 1 ELSE 0 END)`.as(
+        "tv_count"
+      ),
+      totalFileSize: sql<number>`COALESCE(SUM(${mediaItems.fileSize}), 0)`.as("total_file_size"),
+      inPlexCount: sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 1 THEN 1 ELSE 0 END)`.as(
+        "in_plex_count"
+      ),
+    })
     .from(mediaItems)
     .leftJoin(
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
     )
-    .where(
-      and(ne(mediaItems.status, "removed"), ne(mediaItems.status, "not_requested"), baseCondition)
-    );
+    .where(baseCondition);
 
   const [nominatedResult] = await db
     .select({ total: count() })
@@ -178,14 +210,7 @@ export async function computeMediaStats(plexId: string, source: string) {
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
     )
-    .where(
-      and(
-        ne(mediaItems.status, "removed"),
-        ne(mediaItems.status, "not_requested"),
-        inArray(userVotes.vote, ["delete", "trim"]),
-        baseCondition
-      )
-    );
+    .where(and(inArray(userVotes.vote, ["delete", "trim"]), baseCondition));
 
   const [watchedResult] = await db
     .select({ total: count() })
@@ -194,14 +219,7 @@ export async function computeMediaStats(plexId: string, source: string) {
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
     )
-    .where(
-      and(
-        ne(mediaItems.status, "removed"),
-        ne(mediaItems.status, "not_requested"),
-        eq(watchStatus.watched, true),
-        baseCondition
-      )
-    );
+    .where(and(eq(watchStatus.watched, true), baseCondition));
 
   const total = totalResult?.total || 0;
   const nominated = nominatedResult?.total || 0;
@@ -211,6 +229,10 @@ export async function computeMediaStats(plexId: string, source: string) {
     nominated,
     notNominated: total - nominated,
     watched: watchedResult?.total || 0,
+    movieCount: totalResult?.movieCount || 0,
+    tvCount: totalResult?.tvCount || 0,
+    totalFileSize: totalResult?.totalFileSize || 0,
+    inPlexCount: totalResult?.inPlexCount || 0,
   };
 }
 
