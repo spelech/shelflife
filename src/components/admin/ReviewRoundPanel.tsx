@@ -393,7 +393,16 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   seasonCount={c.seasonCount}
                   availableSeasonCount={c.availableSeasonCount}
                   requestedByUsername={c.requestedByUsername}
-                  nominatedBy={c.nominatedBy}
+                  nominations={{
+                    count: c.nominatedBy.length,
+                    usernames: c.nominatedBy,
+                    voters: c.nominatedBy.map((username) => ({
+                      username,
+                      vote: c.nominationType,
+                      keepSeasons: c.keepSeasons,
+                      comment: null,
+                    })),
+                  }}
                   tmdbId={c.tmdbId}
                   tvdbId={c.tvdbId}
                   imdbId={c.imdbId}
