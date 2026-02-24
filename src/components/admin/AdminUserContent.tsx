@@ -11,6 +11,10 @@ interface AdminUserContentProps {
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
+  movieCount: number;
+  tvCount: number;
+  totalFileSize: number;
+  inPlexCount: number;
 }
 
 export function AdminUserContent({
@@ -20,6 +24,10 @@ export function AdminUserContent({
   nominatedCount,
   notNominatedCount,
   watchedCount,
+  movieCount,
+  tvCount,
+  totalFileSize,
+  inPlexCount,
 }: AdminUserContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
 
@@ -31,6 +39,10 @@ export function AdminUserContent({
         nominatedCount={nominatedCount}
         notNominatedCount={notNominatedCount}
         watchedCount={watchedCount}
+        movieCount={movieCount}
+        tvCount={tvCount}
+        totalFileSize={totalFileSize}
+        inPlexCount={inPlexCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />
