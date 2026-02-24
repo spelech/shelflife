@@ -134,7 +134,11 @@ export function MediaDetailModal({
         <div className="relative aspect-[2/3] w-full flex-shrink-0 bg-gray-800 sm:w-48">
           {posterPath ? (
             <Image
-              src={`https://image.tmdb.org/t/p/w400${posterPath}`}
+              src={
+                posterPath.startsWith("http")
+                  ? posterPath
+                  : `https://image.tmdb.org/t/p/w400${posterPath}`
+              }
               alt={title}
               fill
               className="object-contain"

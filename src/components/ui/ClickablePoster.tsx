@@ -39,8 +39,11 @@ export function ClickablePoster({
   children,
 }: ClickablePosterProps) {
   const config = SIZE_CONFIG[size];
+  // posterPath may be a TMDB relative path (/abc.jpg) or a full URL (from Sonarr fallback)
   const posterUrl = posterPath
-    ? `https://image.tmdb.org/t/p/${config.tmdbWidth}${posterPath}`
+    ? posterPath.startsWith("http")
+      ? posterPath
+      : `https://image.tmdb.org/t/p/${config.tmdbWidth}${posterPath}`
     : null;
 
   return (

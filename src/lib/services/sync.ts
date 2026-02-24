@@ -101,10 +101,12 @@ export async function syncLayer1Plex(
       .map((l) => String(l.section_id));
 
     if (sectionsToFetch.length > 0) {
-      syncLogger.info("Layer 1 - Plex", "Fetching TV show sizes via Plex fallback...");
+      syncLogger.info("Layer 1 - Plex", "Fetching TV show sizes via Plex (episode-level sum)...");
       const plexSizes = await fetchPlexTvFileSizes(client, sectionsToFetch);
+      // Always prefer the Plex direct episode-sum for TV shows — Tautulli's
+      // show-level file_size is often stale or incomplete.
       for (const [rk, size] of plexSizes) {
-        if (!fileSizeMap.has(rk)) fileSizeMap.set(rk, size);
+        fileSizeMap.set(rk, size);
       }
     }
   } catch (err) {
@@ -286,6 +288,9 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
         if (!tvdbId) continue;
         seenTvdb.add(tvdbId);
 
+        // Sonarr may also expose a tmdbId — capture it so poster enrichment works
+        const sonarrTmdbId = (series.tmdbId as number | undefined) || undefined;
+
         // Try to match by tvdbId
         const existing = await db
           .select()
@@ -298,6 +303,8 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
             .set({
               inSonarrRadarr: true,
               title: existing[0].title === "Unknown" ? series.title : existing[0].title,
+              // Backfill tmdbId if Sonarr has it and we don't yet
+              ...(sonarrTmdbId && !existing[0].tmdbId ? { tmdbId: sonarrTmdbId } : {}),
               lastSyncedAt: new Date().toISOString(),
             })
             .where(eq(mediaItems.id, existing[0].id));
@@ -311,12 +318,18 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
           if (byTitle.length > 0) {
             await db
               .update(mediaItems)
-              .set({ inSonarrRadarr: true, tvdbId, lastSyncedAt: new Date().toISOString() })
+              .set({
+                inSonarrRadarr: true,
+                tvdbId,
+                ...(sonarrTmdbId && !byTitle[0].tmdbId ? { tmdbId: sonarrTmdbId } : {}),
+                lastSyncedAt: new Date().toISOString(),
+              })
               .where(eq(mediaItems.id, byTitle[0].id));
           } else {
             // Upsert new item not in Plex (managed by Sonarr)
             await db.insert(mediaItems).values({
               tvdbId,
+              tmdbId: sonarrTmdbId,
               title: series.title,
               mediaType: "tv",
               inSonarrRadarr: true,
@@ -399,18 +412,22 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
     }
   }
 
-  // Poster enrichment: fetch posterPath for items that have a tmdbId but no poster yet.
-  // This covers Plex-only items that got their tmdbId from Radarr/Sonarr but were never
-  // synced through Overseerr (which is where posterPath is normally populated).
-  syncLogger.info("Layer 2 - Posters", "Enriching missing posters for items with tmdbId...");
+  // Poster enrichment: fetch posterPath for items missing a poster.
+  // Covers Plex-only items that got their tmdbId from Radarr/Sonarr but were never
+  // synced through Overseerr. Also re-attempts items that only have a tvdbId by
+  // first resolving the tmdbId through the request service.
+  syncLogger.info("Layer 2 - Posters", "Enriching missing posters...");
   try {
     const { getRequestServiceClient } = await import("./request-service");
     const requestClient = getRequestServiceClient();
+
+    // Phase A: items that already have a tmdbId but no poster
     const missingPosters = await db
       .select()
       .from(mediaItems)
       .where(and(isNotNull(mediaItems.tmdbId), isNull(mediaItems.posterPath)));
 
+    let enrichedCount = 0;
     for (const item of missingPosters) {
       if (!item.tmdbId) continue;
       try {
@@ -420,14 +437,84 @@ async function syncLayer2Arr(_logId: number, _onProgress?: ProgressCallback): Pr
             .update(mediaItems)
             .set({ posterPath: details.posterPath })
             .where(eq(mediaItems.id, item.id));
+          enrichedCount++;
         }
       } catch {
         // Non-fatal: skip if TMDB lookup fails for this item
       }
     }
+
+    // Phase B: TV items that only have a tvdbId and no poster/tmdbId
+    // Sonarr should now backfill tmdbId, but as a safety net we also
+    // try the Sonarr API images endpoint for any stragglers.
+    if (isSonarrConfigured()) {
+      const { getSonarrClient } = await import("./sonarr");
+      const sonarrClient = getSonarrClient();
+      const tvMissingPoster = await db
+        .select()
+        .from(mediaItems)
+        .where(
+          and(
+            isNull(mediaItems.posterPath),
+            isNull(mediaItems.tmdbId),
+            isNotNull(mediaItems.tvdbId),
+            eq(mediaItems.mediaType, "tv")
+          )
+        );
+
+      for (const item of tvMissingPoster) {
+        if (!item.tvdbId) continue;
+        try {
+          // Sonarr series object includes 'images' array with cover art
+          const seriesData = await sonarrClient.lookupByTvdbId(item.tvdbId).catch(() => null);
+          if (!seriesData) continue;
+
+          // Grab tmdbId from Sonarr if available — backfill so future syncs use it
+          const sonarrTmdbId = (seriesData.tmdbId as number | undefined) || undefined;
+          if (sonarrTmdbId) {
+            await db
+              .update(mediaItems)
+              .set({ tmdbId: sonarrTmdbId })
+              .where(eq(mediaItems.id, item.id));
+            // Now fetch the poster via the request service
+            try {
+              const details = await requestClient.getMediaDetails(sonarrTmdbId, "tv");
+              if (details.posterPath) {
+                await db
+                  .update(mediaItems)
+                  .set({ posterPath: details.posterPath })
+                  .where(eq(mediaItems.id, item.id));
+                enrichedCount++;
+              }
+            } catch {
+              // Non-fatal
+            }
+          } else {
+            // Fall back to Sonarr's own images array (fanart/poster)
+            const images =
+              (seriesData.images as
+                | Array<{ coverType: string; remoteUrl?: string; url?: string }>
+                | undefined) ?? [];
+            const posterImg = images.find((img) => img.coverType === "poster");
+            const posterUrl = posterImg?.remoteUrl ?? posterImg?.url;
+            if (posterUrl) {
+              // Store the raw URL as-is; the UI will use it directly if posterPath starts with http
+              await db
+                .update(mediaItems)
+                .set({ posterPath: posterUrl })
+                .where(eq(mediaItems.id, item.id));
+              enrichedCount++;
+            }
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+
     syncLogger.info(
       "Layer 2 - Posters",
-      `Enriched posters for up to ${missingPosters.length} items.`
+      `Enriched posters for ${enrichedCount} items (${missingPosters.length} had tmdbId).`
     );
   } catch (e) {
     syncLogger.warn("Layer 2 - Posters", `Poster enrichment skipped: ${e}`);

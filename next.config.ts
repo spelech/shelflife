@@ -26,6 +26,12 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "plex.tv",
       },
+      {
+        // Sonarr/Radarr fallback poster images (remoteUrl) can come from
+        // various CDNs (artworks.thetvdb.com, cdn.tvmaze.com, etc.)
+        protocol: "https",
+        hostname: "**",
+      },
     ],
   },
 };
