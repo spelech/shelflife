@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MediaCard } from "./MediaCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
@@ -12,7 +12,7 @@ interface MediaGridProps {
   statsFilter?: string | null;
   onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
   source?: string;
-  onSourceChange?: (source: string) => void;
+  statsComponent?: React.ReactNode;
 }
 
 export function MediaGrid({
@@ -20,7 +20,7 @@ export function MediaGrid({
   statsFilter,
   onVoteChange,
   source = "all_requests",
-  onSourceChange,
+  statsComponent,
 }: MediaGridProps) {
   const [items, setItems] = useState<MediaItemWithVote[]>(initialItems || []);
   const [loading, setLoading] = useState(!initialItems);
@@ -71,6 +71,29 @@ export function MediaGrid({
     src === "unrequested" || src === "all_media" ? "title_asc" : "requested_newest";
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const prevSourceRef = useRef(source);
+
+  // Handle source changes from outside (e.g., from the Dashboard Content header)
+  useEffect(() => {
+    if (source !== prevSourceRef.current) {
+      prevSourceRef.current = source;
+      setPage(1);
+      const newStatusOptions: string[] =
+        source === "unrequested"
+          ? ["all", "not_requested", "removed"]
+          : source === "all_media"
+            ? ["all", "available", "pending", "processing", "partial", "not_requested", "removed"]
+            : ["all", "available", "pending", "processing", "partial", "removed"];
+
+      setFilters((f) => ({
+        ...f,
+        status: newStatusOptions.includes(f.status) ? f.status : "all",
+        sort: defaultSortForSource(source),
+        vote: "all",
+      }));
+    }
+  }, [source]);
 
   // Reset page when statsFilter changes
   useEffect(() => {
@@ -145,43 +168,6 @@ export function MediaGrid({
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <select
-          value={source}
-          onChange={(e) => {
-            const newSource = e.target.value;
-            setPage(1);
-            // Reset status if the current value isn't valid for the new source
-            const newStatusOptions: string[] =
-              newSource === "unrequested"
-                ? ["all", "not_requested", "removed"]
-                : newSource === "all_media"
-                  ? [
-                      "all",
-                      "available",
-                      "pending",
-                      "processing",
-                      "partial",
-                      "not_requested",
-                      "removed",
-                    ]
-                  : ["all", "available", "pending", "processing", "partial", "removed"];
-            setFilters((f) => ({
-              ...f,
-              status: newStatusOptions.includes(f.status) ? f.status : "all",
-              sort: defaultSortForSource(newSource),
-              vote: "all",
-            }));
-            onSourceChange?.(newSource);
-          }}
-          aria-label="Content source"
-          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
-        >
-          <option value="all_requests">All Requests</option>
-          <option value="my_requests">My Requests</option>
-          <option value="my_media">My Activity</option>
-          <option value="unrequested">Plex Direct</option>
-          <option value="all_media">Everything</option>
-        </select>
         <input
           type="text"
           placeholder="Search titles..."
@@ -249,6 +235,8 @@ export function MediaGrid({
           </span>
         )}
       </div>
+
+      {statsComponent}
 
       {/* Grid */}
       {fetchError ? (

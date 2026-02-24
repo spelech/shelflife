@@ -10,9 +10,14 @@ import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types"
 interface CommunityGridProps {
   onCandidateRemoved?: () => void;
   onCommunityVoteChange?: (delta: number) => void;
+  statsComponent?: React.ReactNode;
 }
 
-export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: CommunityGridProps) {
+export function CommunityGrid({
+  onCandidateRemoved,
+  onCommunityVoteChange,
+  statsComponent,
+}: CommunityGridProps) {
   const [items, setItems] = useState<CommunityCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -139,6 +144,8 @@ export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: Com
           Show only unvoted
         </label>
       </div>
+
+      {statsComponent}
 
       {/* Grid */}
       {fetchError ? (

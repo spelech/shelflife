@@ -31,19 +31,21 @@ export function CommunityContent({
   return (
     <div className="space-y-6">
       <ReviewStatusBanner mode="voting" initialActiveRound={activeRound} />
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs tracking-wide text-gray-500 uppercase">Up for Review</p>
-          <p className="mt-1 text-2xl font-bold">{stats.candidates}</p>
-        </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <p className="text-xs tracking-wide text-gray-500 uppercase">Community Votes</p>
-          <p className="mt-1 text-2xl font-bold">{stats.votes}</p>
-        </div>
-      </div>
       <CommunityGrid
         onCandidateRemoved={handleCandidateRemoved}
         onCommunityVoteChange={handleCommunityVoteChange}
+        statsComponent={
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs tracking-wide text-gray-500 uppercase">Up for Review</p>
+              <p className="mt-1 text-2xl font-bold">{stats.candidates}</p>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs tracking-wide text-gray-500 uppercase">Community Votes</p>
+              <p className="mt-1 text-2xl font-bold">{stats.votes}</p>
+            </div>
+          </div>
+        }
       />
     </div>
   );
