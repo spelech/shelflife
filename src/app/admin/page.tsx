@@ -6,6 +6,7 @@ import { eq, count, desc, inArray, sql } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { AutoSyncSettings } from "@/components/admin/AutoSyncSettings";
 import { PlexSyncToggle } from "@/components/admin/PlexSyncToggle";
+import { LibrarySelector } from "@/components/admin/LibrarySelector";
 import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
 import { AppVersion } from "@/components/ui/AppVersion";
 import { getSyncScheduleSettings, isPlexSyncEnabled } from "@/lib/services/settings";
@@ -95,6 +96,9 @@ export default async function AdminPage() {
 
         {/* Plex Library Sync Toggle */}
         <PlexSyncToggle initialEnabled={plexSyncEnabled} />
+
+        {/* Library Selection */}
+        <LibrarySelector />
 
         {/* Auto Sync */}
         <AutoSyncSettings initialSettings={syncScheduleSettings} />

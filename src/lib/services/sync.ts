@@ -77,7 +77,18 @@ export async function syncLayer1Plex(
   let synced = 0;
 
   syncLogger.info("Layer 1 - Plex", "Starting Layer 1: Plex via Tautulli");
-  const libraries = await client.getLibraries();
+  const allLibraries = await client.getLibraries();
+
+  // Filter libraries down to movies/shows, and restrict to user selection if specified
+  const { getSelectedLibraries } = await import("./settings");
+  const selectedLibraryIds = await getSelectedLibraries();
+  const targetLibraries = allLibraries.filter((l) => {
+    if (l.section_type !== "movie" && l.section_type !== "show") return false;
+    if (selectedLibraryIds.length > 0 && !selectedLibraryIds.includes(String(l.section_id))) {
+      return false;
+    }
+    return true;
+  });
 
   const allRatingKeys = new Set<string>();
   const fileSizeMap = new Map<string, number>();
@@ -85,7 +96,7 @@ export async function syncLayer1Plex(
   // First, get file sizes using the existing strategy
   syncLogger.info("Layer 1 - Plex", "Fetching library sizes...");
   try {
-    for (const lib of libraries) {
+    for (const lib of targetLibraries) {
       const sectionId = String(lib.section_id);
       const mediaInfo = await client.getLibraryMediaInfo(sectionId);
       for (const item of mediaInfo) {
@@ -96,7 +107,7 @@ export async function syncLayer1Plex(
       }
     }
 
-    const sectionsToFetch = libraries
+    const sectionsToFetch = targetLibraries
       .filter((l) => l.section_type === "show")
       .map((l) => String(l.section_id));
 
@@ -114,7 +125,7 @@ export async function syncLayer1Plex(
   }
 
   // Iterate libraries to insert basic metadata
-  for (const lib of libraries) {
+  for (const lib of targetLibraries) {
     syncLogger.info(
       "Layer 1 - Plex",
       `Processing library: ${lib.section_name} (${lib.section_id})`

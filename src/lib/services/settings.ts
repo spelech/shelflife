@@ -21,6 +21,38 @@ export async function setPlexSyncEnabled(enabled: boolean): Promise<void> {
     });
 }
 
+// ── Selected Library IDs ──────────────────────────────────────────────
+// Stored as a JSON array of section_id strings.
+// An empty array means "sync all libraries" (default / backwards-compatible).
+const SELECTED_LIBRARIES_KEY = "selected_library_ids";
+
+export async function getSelectedLibraries(): Promise<string[]> {
+  const rows = await db
+    .select()
+    .from(appSettings)
+    .where(eq(appSettings.key, SELECTED_LIBRARIES_KEY));
+  if (rows.length === 0) return [];
+  try {
+    const parsed = JSON.parse(rows[0].value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setSelectedLibraries(sectionIds: string[]): Promise<void> {
+  const now = new Date().toISOString();
+  const value = JSON.stringify(sectionIds);
+  await db
+    .insert(appSettings)
+    .values({ key: SELECTED_LIBRARIES_KEY, value, updatedAt: now })
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: { value, updatedAt: now },
+    });
+}
+
+// ── Sync Schedule Settings ────────────────────────────────────────────
 export interface SyncScheduleSettings {
   enabled: boolean;
   schedule: string;
