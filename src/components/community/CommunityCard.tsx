@@ -46,10 +46,10 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
               <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
               <VoteButton
                 mediaItemId={item.id}
-                currentVote={item.nominationType}
+                currentVote={item.currentUserNominationVote}
                 seasonCount={item.seasonCount}
                 mediaType={item.mediaType}
-                currentKeepSeasons={item.keepSeasons}
+                currentKeepSeasons={item.currentUserNominationKeepSeasons}
                 currentComment={item.currentUserNominationComment}
                 onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
               />
@@ -57,18 +57,46 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
           ) : item.isRequestor ? (
             <div className="space-y-1">
               <p className="text-xs text-amber-400">Admin nomination</p>
+              <div className="mt-3 space-y-1">
+                <p className="text-xs text-gray-500">Support the nomination:</p>
+                <VoteButton
+                  mediaItemId={item.id}
+                  currentVote={item.currentUserNominationVote}
+                  seasonCount={item.seasonCount}
+                  mediaType={item.mediaType}
+                  currentKeepSeasons={item.currentUserNominationKeepSeasons}
+                  currentComment={item.currentUserNominationComment}
+                  onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
               <CommunityVoteButton
                 mediaItemId={item.id}
                 currentVote={item.currentUserVote}
                 onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
               />
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-gray-800"></div>
+                <span className="text-[10px] font-medium tracking-wider text-gray-500 uppercase">
+                  OR
+                </span>
+                <div className="h-px flex-1 bg-gray-800"></div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Support the nomination:</p>
+                <VoteButton
+                  mediaItemId={item.id}
+                  currentVote={item.currentUserNominationVote}
+                  seasonCount={item.seasonCount}
+                  mediaType={item.mediaType}
+                  currentKeepSeasons={item.currentUserNominationKeepSeasons}
+                  currentComment={item.currentUserNominationComment}
+                  onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
+                />
+              </div>
             </div>
-          ) : (
-            <CommunityVoteButton
-              mediaItemId={item.id}
-              currentVote={item.currentUserVote}
-              onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
-            />
           )}
         </>
       )}

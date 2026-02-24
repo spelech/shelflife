@@ -61,6 +61,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
+    // Ensure mutually exclusive voting: remove any existing nomination (delete/trim) vote
+    await db
+      .delete(userVotes)
+      .where(and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId)));
+
     // Upsert community vote
     await db
       .insert(communityVotes)

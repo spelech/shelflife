@@ -144,6 +144,8 @@ export interface CommunityCandidate {
   currentUserVote: CommunityVoteValue | null;
   isRequestor: boolean;
   isNominator: boolean;
+  currentUserNominationVote: "delete" | "trim" | null;
+  currentUserNominationKeepSeasons: number | null;
   currentUserNominationComment: string | null;
   nominations: NominationSummary | null;
 }

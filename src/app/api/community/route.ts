@@ -96,6 +96,18 @@ export async function GET(request: NextRequest) {
         "is_nominator"
       );
 
+    const currentUserNominationVote = sql<
+      string | null
+    >`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN ${userVotes.vote} END)`.as(
+      "current_user_nomination_vote"
+    );
+
+    const currentUserNominationKeepSeasons = sql<
+      number | null
+    >`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN ${userVotes.keepSeasons} END)`.as(
+      "current_user_nomination_keep_seasons"
+    );
+
     const currentUserNominationComment = sql<
       string | null
     >`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN ${userVotes.comment} END)`.as(
@@ -130,6 +142,8 @@ export async function GET(request: NextRequest) {
         selfVoteUpdatedAt: sql<string>`MAX(${userVotes.updatedAt})`.as("self_vote_updated_at"),
         requestedByPlexId: mediaItems.requestedByPlexId,
         isNominator,
+        currentUserNominationVote,
+        currentUserNominationKeepSeasons,
         currentUserNominationComment,
       })
       .from(mediaItems)
@@ -219,6 +233,11 @@ export async function GET(request: NextRequest) {
         currentUserVote: i.currentUserVote || null,
         isRequestor: i.requestedByPlexId === session.plexId,
         isNominator: !!i.isNominator,
+        currentUserNominationVote:
+          (i.currentUserNominationVote as "delete" | "trim" | null) || null,
+        currentUserNominationKeepSeasons: i.currentUserNominationKeepSeasons
+          ? Number(i.currentUserNominationKeepSeasons)
+          : null,
         currentUserNominationComment: i.currentUserNominationComment || null,
         nominations: nominationsMap.get(i.id) ?? null,
       })),

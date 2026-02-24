@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes } from "@/lib/db/schema";
+import { mediaItems, userVotes, communityVotes } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +54,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         );
       }
     }
+
+    // Ensure mutually exclusive voting: remove any existing community (keep) vote
+    await db
+      .delete(communityVotes)
+      .where(
+        and(
+          eq(communityVotes.mediaItemId, mediaItemId),
+          eq(communityVotes.userPlexId, session.plexId)
+        )
+      );
 
     // Upsert vote
     await db

@@ -79,6 +79,14 @@ export function CommunityGrid({
               tally: {
                 keepCount: item.tally.keepCount + delta.keep,
               },
+              ...(_vote === "keep" && item.isNominator
+                ? {
+                    isNominator: false,
+                    currentUserNominationVote: null,
+                    currentUserNominationKeepSeasons: null,
+                    currentUserNominationComment: null,
+                  }
+                : {}),
             }
           : item
       )
@@ -87,18 +95,55 @@ export function CommunityGrid({
   };
 
   const handleSelfVoteChange = (itemId: number, vote: VoteValue | null) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
     if (vote === null) {
-      // User un-nominated — remove from community list
-      setItems((prev) => prev.filter((item) => item.id !== itemId));
-      setTotalItems((prev) => prev - 1);
-      onCandidateRemoved?.();
+      if (item.nominations && item.nominations.count <= 1) {
+        // User un-nominated and was the only nominator — remove from community list
+        setItems((prev) => prev.filter((i) => i.id !== itemId));
+        setTotalItems((prev) => prev - 1);
+        onCandidateRemoved?.();
+      } else {
+        // User un-nominated but others still have it nominated
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  isNominator: false,
+                  currentUserNominationVote: null,
+                  currentUserNominationKeepSeasons: null,
+                  currentUserNominationComment: null,
+                }
+              : i
+          )
+        );
+      }
     } else {
-      // Updated to delete/trim — update the nomination type in place
+      const hadKeepVote = item.currentUserVote === "keep";
+      // Updated to delete/trim
       setItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? { ...item, nominationType: vote as "delete" | "trim" } : item
+        prev.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                isNominator: true,
+                currentUserNominationVote: vote as "delete" | "trim",
+                nominationType: vote as "delete" | "trim",
+                ...(hadKeepVote
+                  ? {
+                      currentUserVote: null,
+                      tally: { keepCount: Math.max(0, i.tally.keepCount - 1) },
+                    }
+                  : {}),
+              }
+            : i
         )
       );
+      if (hadKeepVote) {
+        onCommunityVoteChange?.(-1);
+      }
     }
   };
 
