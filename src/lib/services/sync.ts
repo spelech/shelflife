@@ -6,7 +6,7 @@ import { getTautulliClient } from "./tautulli";
 import { getSonarrClient, isSonarrConfigured } from "./sonarr";
 import { getRadarrClient, isRadarrConfigured } from "./radarr";
 import { upsertUser } from "./user-upsert";
-import { eq, and, isNotNull, isNull } from "drizzle-orm";
+import { eq, and, isNotNull, isNull, count } from "drizzle-orm";
 import { syncLogger } from "./sync-logger";
 import { isPlexSyncEnabled } from "./settings";
 
@@ -33,28 +33,36 @@ async function fetchPlexTvFileSizes(
   if (!plexToken) return fileSizeMap;
 
   for (const sectionId of sectionIds) {
-    const url = `${pmsUrl}/library/sections/${sectionId}/all?type=4`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "X-Plex-Token": plexToken },
-    });
-    if (!res.ok) continue;
+    let start = 0;
+    const size = 5000;
 
-    const json = await res.json();
-    const episodes = json?.MediaContainer?.Metadata;
-    if (!Array.isArray(episodes)) continue;
+    while (true) {
+      const url = `${pmsUrl}/library/sections/${sectionId}/all?type=4&X-Plex-Container-Start=${start}&X-Plex-Container-Size=${size}`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json", "X-Plex-Token": plexToken },
+      });
+      if (!res.ok) break;
 
-    for (const ep of episodes) {
-      const showRatingKey = ep.grandparentRatingKey;
-      if (!showRatingKey) continue;
-      const key = String(showRatingKey);
+      const json = await res.json();
+      const episodes = json?.MediaContainer?.Metadata;
+      if (!Array.isArray(episodes) || episodes.length === 0) break;
 
-      for (const media of ep.Media ?? []) {
-        for (const part of media.Part ?? []) {
-          if (part.size && Number(part.size) > 0) {
-            fileSizeMap.set(key, (fileSizeMap.get(key) || 0) + Number(part.size));
+      for (const ep of episodes) {
+        const showRatingKey = ep.grandparentRatingKey;
+        if (!showRatingKey) continue;
+        const key = String(showRatingKey);
+
+        for (const media of ep.Media ?? []) {
+          for (const part of media.Part ?? []) {
+            if (part.size && Number(part.size) > 0) {
+              fileSizeMap.set(key, (fileSizeMap.get(key) || 0) + Number(part.size));
+            }
           }
         }
       }
+
+      if (episodes.length < size) break;
+      start += size;
     }
   }
 
@@ -616,6 +624,9 @@ export async function runFullSync(onProgress?: ProgressCallback): Promise<{ item
     await updateProgress(3, "Syncing Overseerr Requests...");
     const overseerrItems = await syncLayer3Overseerr(logId, onProgress);
     totalItemsSynced += overseerrItems;
+
+    const finalCount = await db.select({ value: count() }).from(mediaItems);
+    totalItemsSynced = finalCount[0].value;
 
     await db
       .update(syncLog)

@@ -18,6 +18,8 @@ interface UserStatsProps {
   tvCount: number;
   totalFileSize: number;
   inPlexCount: number;
+  missingCount: number;
+  pendingCount: number;
   activeFilter?: string | null;
   onFilterChange?: (filter: string | null) => void;
 }
@@ -32,6 +34,8 @@ export function UserStats({
   tvCount,
   totalFileSize,
   inPlexCount,
+  missingCount,
+  pendingCount,
   activeFilter,
   onFilterChange,
 }: UserStatsProps) {
@@ -52,6 +56,8 @@ export function UserStats({
     { label: "Movies", value: String(movieCount), icon: "🎬" },
     { label: "TV Shows", value: String(tvCount), icon: "📺" },
     { label: "In Plex", value: String(inPlexCount), icon: "▶" },
+    ...(pendingCount > 0 ? [{ label: "Pending", value: String(pendingCount), icon: "⏳" }] : []),
+    ...(missingCount > 0 ? [{ label: "Missing", value: String(missingCount), icon: "🔍" }] : []),
     ...(totalFileSize > 0
       ? [{ label: "Library Size", value: formatFileSize(totalFileSize), icon: "💾" }]
       : []),

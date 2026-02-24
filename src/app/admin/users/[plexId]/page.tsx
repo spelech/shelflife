@@ -31,6 +31,14 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
       inPlexCount: sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 1 THEN 1 ELSE 0 END)`.as(
         "in_plex_count"
       ),
+      missingCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 0 AND ${mediaItems.inSonarrRadarr} = 1 THEN 1 ELSE 0 END)`.as(
+          "missing_count"
+        ),
+      pendingCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 0 AND ${mediaItems.inOverseerr} = 1 THEN 1 ELSE 0 END)`.as(
+          "pending_count"
+        ),
     })
     .from(mediaItems)
     .where(eq(mediaItems.requestedByPlexId, plexId));
@@ -106,6 +114,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
           tvCount={totalResult?.tvCount || 0}
           totalFileSize={totalResult?.totalFileSize || 0}
           inPlexCount={totalResult?.inPlexCount || 0}
+          missingCount={totalResult?.missingCount || 0}
+          pendingCount={totalResult?.pendingCount || 0}
         />
       </main>
     </div>

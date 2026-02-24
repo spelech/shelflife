@@ -17,6 +17,8 @@ export default async function DashboardPage() {
     tvCount,
     totalFileSize,
     inPlexCount,
+    missingCount,
+    pendingCount,
   } = await computeMediaStats(session.plexId, "my_requests");
 
   return (
@@ -56,6 +58,8 @@ export default async function DashboardPage() {
           tvCount={tvCount}
           totalFileSize={totalFileSize}
           inPlexCount={inPlexCount}
+          missingCount={missingCount}
+          pendingCount={pendingCount}
         />
       </main>
     </div>

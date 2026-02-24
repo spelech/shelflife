@@ -191,6 +191,14 @@ export async function computeMediaStats(plexId: string, source: string) {
       inPlexCount: sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 1 THEN 1 ELSE 0 END)`.as(
         "in_plex_count"
       ),
+      missingCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 0 AND ${mediaItems.inSonarrRadarr} = 1 THEN 1 ELSE 0 END)`.as(
+          "missing_count"
+        ),
+      pendingCount:
+        sql<number>`SUM(CASE WHEN ${mediaItems.inPlex} = 0 AND ${mediaItems.inOverseerr} = 1 THEN 1 ELSE 0 END)`.as(
+          "pending_count"
+        ),
     })
     .from(mediaItems)
     .leftJoin(
@@ -233,6 +241,8 @@ export async function computeMediaStats(plexId: string, source: string) {
     tvCount: totalResult?.tvCount || 0,
     totalFileSize: totalResult?.totalFileSize || 0,
     inPlexCount: totalResult?.inPlexCount || 0,
+    missingCount: totalResult?.missingCount || 0,
+    pendingCount: totalResult?.pendingCount || 0,
   };
 }
 

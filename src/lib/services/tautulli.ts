@@ -151,7 +151,6 @@ class TautulliClient {
     const allItems: z.infer<typeof tautulliLibraryMediaSchema>[] = [];
     let start = 0;
 
-     
     while (true) {
       const data = await this.fetch("get_library_media_info", {
         section_id: sectionId,

@@ -15,6 +15,8 @@ interface DashboardContentProps {
   tvCount: number;
   totalFileSize: number;
   inPlexCount: number;
+  missingCount: number;
+  pendingCount: number;
 }
 
 export function DashboardContent({
@@ -26,6 +28,8 @@ export function DashboardContent({
   tvCount: initialTvCount,
   totalFileSize: initialTotalFileSize,
   inPlexCount: initialInPlexCount,
+  missingCount: initialMissingCount,
+  pendingCount: initialPendingCount,
 }: DashboardContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
   const [source, setSource] = useState("my_requests");
@@ -38,6 +42,8 @@ export function DashboardContent({
     tvCount: initialTvCount,
     totalFileSize: initialTotalFileSize,
     inPlexCount: initialInPlexCount,
+    missingCount: initialMissingCount,
+    pendingCount: initialPendingCount,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -66,6 +72,8 @@ export function DashboardContent({
             tvCount: data.tvCount,
             totalFileSize: data.totalFileSize,
             inPlexCount: data.inPlexCount,
+            missingCount: data.missingCount,
+            pendingCount: data.pendingCount,
           });
         }
       }
@@ -117,6 +125,8 @@ export function DashboardContent({
         tvCount={stats.tvCount}
         totalFileSize={stats.totalFileSize}
         inPlexCount={stats.inPlexCount}
+        missingCount={stats.missingCount}
+        pendingCount={stats.pendingCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />
