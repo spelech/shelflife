@@ -15,6 +15,8 @@ interface AdminUserContentProps {
   tvCount: number;
   totalFileSize: number;
   inPlexCount: number;
+  missingCount: number;
+  pendingCount: number;
 }
 
 export function AdminUserContent({
@@ -28,6 +30,8 @@ export function AdminUserContent({
   tvCount,
   totalFileSize,
   inPlexCount,
+  missingCount,
+  pendingCount,
 }: AdminUserContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
 
@@ -43,6 +47,8 @@ export function AdminUserContent({
         tvCount={tvCount}
         totalFileSize={totalFileSize}
         inPlexCount={inPlexCount}
+        missingCount={missingCount}
+        pendingCount={pendingCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />

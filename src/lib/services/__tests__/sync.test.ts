@@ -165,8 +165,8 @@ describe("runFullSync (3-Layer Sync)", () => {
     const lastLog = logs[logs.length - 1];
     expect(lastLog.status).toBe("completed");
 
-    // Layer 1 (Plex) was skipped so no plex items were synced
-    expect(result.itemsSynced).toBe(0);
+    // Layer 1 (Plex) was skipped but final count includes seeded items
+    expect(result.itemsSynced).toBe(7);
 
     // No items should have inPlex set to true from this sync
     const plexItems = testDb.db

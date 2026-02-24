@@ -274,14 +274,14 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
             >
               Tautulli Only
             </button>
-            <button
-              onClick={toggleLogs}
-              className="rounded-md bg-gray-800 px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
-            >
-              {showLogs ? "Hide Logs" : "View Logs"}
-            </button>
           </>
         )}
+        <button
+          onClick={toggleLogs}
+          className="rounded-md bg-gray-800 px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
+        >
+          {showLogs ? "Hide Logs" : "View Logs"}
+        </button>
       </div>
 
       {showLogs && (
